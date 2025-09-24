@@ -1,0 +1,332 @@
+<svg width="1600" height="1200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .title { font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; fill: #2563eb; }
+      .class-title { font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; fill: #1f2937; text-anchor: middle; }
+      .class-text { font-family: Arial, sans-serif; font-size: 11px; fill: #374151; }
+      .class-method { font-family: Arial, sans-serif; font-size: 10px; fill: #4b5563; }
+      .package-text { font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; fill: #6b7280; }
+      
+      /* Styles des classes */
+      .model-class { stroke: #10b981; stroke-width: 2; fill: #d1fae5; }
+      .service-class { stroke: #3b82f6; stroke-width: 2; fill: #dbeafe; }
+      .component-class { stroke: #f59e0b; stroke-width: 2; fill: #fef3c7; }
+      .context-class { stroke: #8b5cf6; stroke-width: 2; fill: #ede9fe; }
+      .hook-class { stroke: #ec4899; stroke-width: 2; fill: #fce7f3; }
+      .util-class { stroke: #6b7280; stroke-width: 2; fill: #f3f4f6; }
+      
+      /* Relations */
+      .association { stroke: #374151; stroke-width: 1.5; fill: none; }
+      .composition { stroke: #dc2626; stroke-width: 2; fill: none; }
+      .dependency { stroke: #6b7280; stroke-width: 1; stroke-dasharray: 5,3; fill: none; }
+      .inheritance { stroke: #059669; stroke-width: 2; fill: none; }
+      
+      /* Packages */
+      .package-border { stroke: #9ca3af; stroke-width: 2; fill: none; stroke-dasharray: 8,4; }
+    </style>
+  </defs>
+
+  <!-- Titre -->
+  <text x="800" y="30" class="title" text-anchor="middle">Diagramme de Classes - Laevitas Trading Platform</text>
+
+  <!-- Package Backend Models -->
+  <rect x="50" y="60" width="400" height="500" class="package-border" rx="10"/>
+  <text x="60" y="80" class="package-text">Backend Models</text>
+
+  <!-- Classe User -->
+  <rect x="70" y="100" width="160" height="120" class="model-class" rx="5"/>
+  <text x="150" y="115" class="class-title">User</text>
+  <line x1="70" y1="125" x2="230" y2="125" stroke="#10b981" stroke-width="1"/>
+  <text x="75" y="140" class="class-text">- firstName: String</text>
+  <text x="75" y="152" class="class-text">- lastName: String</text>
+  <text x="75" y="164" class="class-text">- email: String</text>
+  <text x="75" y="176" class="class-text">- password: String</text>
+  <text x="75" y="188" class="class-text">- role: String</text>
+  <text x="75" y="200" class="class-text">- avatar: String</text>
+  <line x1="70" y1="205" x2="230" y2="205" stroke="#10b981" stroke-width="1"/>
+  <text x="75" y="215" class="class-method">+ authenticate()</text>
+
+  <!-- Classe Portfolio -->
+  <rect x="260" y="100" width="170" height="140" class="model-class" rx="5"/>
+  <text x="345" y="115" class="class-title">Portfolio</text>
+  <line x1="260" y1="125" x2="430" y2="125" stroke="#10b981" stroke-width="1"/>
+  <text x="265" y="140" class="class-text">- userId: ObjectId</text>
+  <text x="265" y="152" class="class-text">- assets: [Asset]</text>
+  <text x="265" y="164" class="class-text">- totalValue: Number</text>
+  <text x="265" y="176" class="class-text">- totalInvested: Number</text>
+  <text x="265" y="188" class="class-text">- profitLoss: Number</text>
+  <text x="265" y="200" class="class-text">- performance: Object</text>
+  <line x1="260" y1="210" x2="430" y2="210" stroke="#10b981" stroke-width="1"/>
+  <text x="265" y="225" class="class-method">+ calculatePerformance()</text>
+  <text x="265" y="235" class="class-method">+ addAsset()</text>
+
+  <!-- Classe Wallet -->
+  <rect x="70" y="260" width="160" height="120" class="model-class" rx="5"/>
+  <text x="150" y="275" class="class-title">Wallet</text>
+  <line x1="70" y1="285" x2="230" y2="285" stroke="#10b981" stroke-width="1"/>
+  <text x="75" y="300" class="class-text">- userId: ObjectId</text>
+  <text x="75" y="312" class="class-text">- balances: [Balance]</text>
+  <text x="75" y="324" class="class-text">- transactions: [Transaction]</text>
+  <text x="75" y="336" class="class-text">- totalBalance: Number</text>
+  <line x1="70" y1="345" x2="230" y2="345" stroke="#10b981" stroke-width="1"/>
+  <text x="75" y="360" class="class-method">+ deposit()</text>
+  <text x="75" y="370" class="class-method">+ withdraw()</text>
+
+  <!-- Classe Market -->
+  <rect x="260" y="260" width="170" height="120" class="model-class" rx="5"/>
+  <text x="345" y="275" class="class-title">Market</text>
+  <line x1="260" y1="285" x2="430" y2="285" stroke="#10b981" stroke-width="1"/>
+  <text x="265" y="300" class="class-text">- symbol: String</text>
+  <text x="265" y="312" class="class-text">- baseAsset: String</text>
+  <text x="265" y="324" class="class-text">- quoteAsset: String</text>
+  <text x="265" y="336" class="class-text">- type: String</text>
+  <text x="265" y="348" class="class-text">- priceData: Object</text>
+  <line x1="260" y1="355" x2="430" y2="355" stroke="#10b981" stroke-width="1"/>
+  <text x="265" y="370" class="class-method">+ updatePrice()</text>
+
+  <!-- Classe Watchlist -->
+  <rect x="70" y="400" width="160" height="120" class="model-class" rx="5"/>
+  <text x="150" y="415" class="class-title">Watchlist</text>
+  <line x1="70" y1="425" x2="230" y2="425" stroke="#10b981" stroke-width="1"/>
+  <text x="75" y="440" class="class-text">- userId: ObjectId</text>
+  <text x="75" y="452" class="class-text">- items: [WatchlistItem]</text>
+  <text x="75" y="464" class="class-text">- name: String</text>
+  <text x="75" y="476" class="class-text">- isDefault: Boolean</text>
+  <line x1="70" y1="485" x2="230" y2="485" stroke="#10b981" stroke-width="1"/>
+  <text x="75" y="500" class="class-method">+ addSymbol()</text>
+  <text x="75" y="510" class="class-method">+ removeSymbol()</text>
+
+  <!-- Package Backend Services -->
+  <rect x="500" y="60" width="350" height="400" class="package-border" rx="10"/>
+  <text x="510" y="80" class="package-text">Backend Services</text>
+
+  <!-- Classe BinanceService -->
+  <rect x="520" y="100" width="150" height="100" class="service-class" rx="5"/>
+  <text x="595" y="115" class="class-title">BinanceService</text>
+  <line x1="520" y1="125" x2="670" y2="125" stroke="#3b82f6" stroke-width="1"/>
+  <text x="525" y="140" class="class-text">- baseURL: String</text>
+  <text x="525" y="152" class="class-text">- wsConnections: Map</text>
+  <line x1="520" y1="160" x2="670" y2="160" stroke="#3b82f6" stroke-width="1"/>
+  <text x="525" y="175" class="class-method">+ getExchangeInfo()</text>
+  <text x="525" y="185" class="class-method">+ get24hrTicker()</text>
+  <text x="525" y="195" class="class-method">+ getCurrentPrices()</text>
+
+  <!-- Classe WebSocketService -->
+  <rect x="690" y="100" width="150" height="100" class="service-class" rx="5"/>
+  <text x="765" y="115" class="class-title">WebSocketService</text>
+  <line x1="690" y1="125" x2="840" y2="125" stroke="#3b82f6" stroke-width="1"/>
+  <text x="695" y="140" class="class-text">- wss: WebSocketServer</text>
+  <text x="695" y="152" class="class-text">- clients: Map</text>
+  <line x1="690" y1="160" x2="840" y2="160" stroke="#3b82f6" stroke-width="1"/>
+  <text x="695" y="175" class="class-method">+ initialize()</text>
+  <text x="695" y="185" class="class-method">+ broadcast()</text>
+  <text x="695" y="195" class="class-method">+ handleConnection()</text>
+
+  <!-- Classe SyncService -->
+  <rect x="520" y="220" width="150" height="100" class="service-class" rx="5"/>
+  <text x="595" y="235" class="class-title">SyncService</text>
+  <line x1="520" y1="245" x2="670" y2="245" stroke="#3b82f6" stroke-width="1"/>
+  <text x="525" y="260" class="class-text">- isRunning: Boolean</text>
+  <text x="525" y="272" class="class-text">- trackedSymbols: Array</text>
+  <line x1="520" y1="280" x2="670" y2="280" stroke="#3b82f6" stroke-width="1"/>
+  <text x="525" y="295" class="class-method">+ start()</text>
+  <text x="525" y="305" class="class-method">+ performSync()</text>
+  <text x="525" y="315" class="class-method">+ stop()</text>
+
+  <!-- Package Frontend Components -->
+  <rect x="900" y="60" width="650" height="500" class="package-border" rx="10"/>
+  <text x="910" y="80" class="package-text">Frontend Components</text>
+
+  <!-- Classe App -->
+  <rect x="920" y="100" width="120" height="80" class="component-class" rx="5"/>
+  <text x="980" y="115" class="class-title">App</text>
+  <line x1="920" y1="125" x2="1040" y2="125" stroke="#f59e0b" stroke-width="1"/>
+  <text x="925" y="140" class="class-text">- queryClient: QueryClient</text>
+  <line x1="920" y1="150" x2="1040" y2="150" stroke="#f59e0b" stroke-width="1"/>
+  <text x="925" y="165" class="class-method">+ render()</text>
+  <text x="925" y="175" class="class-method">+ setupRoutes()</text>
+
+  <!-- Classe DashboardPage -->
+  <rect x="1060" y="100" width="140" height="80" class="component-class" rx="5"/>
+  <text x="1130" y="115" class="class-title">DashboardPage</text>
+  <line x1="1060" y1="125" x2="1200" y2="125" stroke="#f59e0b" stroke-width="1"/>
+  <text x="1065" y="140" class="class-text">- stats: Object</text>
+  <text x="1065" y="152" class="class-text">- activeTab: String</text>
+  <line x1="1060" y1="160" x2="1200" y2="160" stroke="#f59e0b" stroke-width="1"/>
+  <text x="1065" y="175" class="class-method">+ loadDashboard()</text>
+
+  <!-- Classe TradingDashboard -->
+  <rect x="920" y="200" width="140" height="80" class="component-class" rx="5"/>
+  <text x="990" y="215" class="class-title">TradingDashboard</text>
+  <line x1="920" y1="225" x2="1060" y2="225" stroke="#f59e0b" stroke-width="1"/>
+  <text x="925" y="240" class="class-text">- activeTab: String</text>
+  <text x="925" y="252" class="class-text">- markets: Array</text>
+  <line x1="920" y1="260" x2="1060" y2="260" stroke="#f59e0b" stroke-width="1"/>
+  <text x="925" y="275" class="class-method">+ switchTab()</text>
+
+  <!-- Classe Portfolio (Component) -->
+  <rect x="1080" y="200" width="120" height="80" class="component-class" rx="5"/>
+  <text x="1140" y="215" class="class-title">Portfolio</text>
+  <line x1="1080" y1="225" x2="1200" y2="225" stroke="#f59e0b" stroke-width="1"/>
+  <text x="1085" y="240" class="class-text">- assets: Array</text>
+  <text x="1085" y="252" class="class-text">- performance: Object</text>
+  <line x1="1080" y1="260" x2="1200" y2="260" stroke="#f59e0b" stroke-width="1"/>
+  <text x="1085" y="275" class="class-method">+ loadPortfolio()</text>
+
+  <!-- Classe WalletManagement -->
+  <rect x="920" y="300" width="140" height="80" class="component-class" rx="5"/>
+  <text x="990" y="315" class="class-title">WalletManagement</text>
+  <line x1="920" y1="325" x2="1060" y2="325" stroke="#f59e0b" stroke-width="1"/>
+  <text x="925" y="340" class="class-text">- balances: Array</text>
+  <text x="925" y="352" class="class-text">- transactions: Array</text>
+  <line x1="920" y1="360" x2="1060" y2="360" stroke="#f59e0b" stroke-width="1"/>
+  <text x="925" y="375" class="class-method">+ loadWallet()</text>
+
+  <!-- Classe MarketOverview -->
+  <rect x="1080" y="300" width="120" height="80" class="component-class" rx="5"/>
+  <text x="1140" y="315" class="class-title">MarketOverview</text>
+  <line x1="1080" y1="325" x2="1200" y2="325" stroke="#f59e0b" stroke-width="1"/>
+  <text x="1085" y="340" class="class-text">- markets: Array</text>
+  <text x="1085" y="352" class="class-text">- filters: Object</text>
+  <line x1="1080" y1="360" x2="1200" y2="360" stroke="#f59e0b" stroke-width="1"/>
+  <text x="1085" y="375" class="class-method">+ loadMarkets()</text>
+
+  <!-- Classe Watchlist (Component) -->
+  <rect x="920" y="400" width="120" height="80" class="component-class" rx="5"/>
+  <text x="980" y="415" class="class-title">Watchlist</text>
+  <line x1="920" y1="425" x2="1040" y2="425" stroke="#f59e0b" stroke-width="1"/>
+  <text x="925" y="440" class="class-text">- items: Array</text>
+  <text x="925" y="452" class="class-text">- alerts: Array</text>
+  <line x1="920" y1="460" x2="1040" y2="460" stroke="#f59e0b" stroke-width="1"/>
+  <text x="925" y="475" class="class-method">+ addToWatchlist()</text>
+
+  <!-- Classe AdminDashboard -->
+  <rect x="1220" y="100" width="120" height="80" class="component-class" rx="5"/>
+  <text x="1280" y="115" class="class-title">AdminDashboard</text>
+  <line x1="1220" y1="125" x2="1340" y2="125" stroke="#f59e0b" stroke-width="1"/>
+  <text x="1225" y="140" class="class-text">- users: Array</text>
+  <text x="1225" y="152" class="class-text">- stats: Object</text>
+  <line x1="1220" y1="160" x2="1340" y2="160" stroke="#f59e0b" stroke-width="1"/>
+  <text x="1225" y="175" class="class-method">+ loadUsers()</text>
+
+  <!-- Package Frontend Contexts -->
+  <rect x="900" y="580" width="300" height="200" class="package-border" rx="10"/>
+  <text x="910" y="600" class="package-text">Frontend Contexts</text>
+
+  <!-- Classe AuthContext -->
+  <rect x="920" y="620" width="120" height="80" class="context-class" rx="5"/>
+  <text x="980" y="635" class="class-title">AuthContext</text>
+  <line x1="920" y1="645" x2="1040" y2="645" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="925" y="660" class="class-text">- user: User</text>
+  <text x="925" y="672" class="class-text">- isAuthenticated: Boolean</text>
+  <line x1="920" y1="680" x2="1040" y2="680" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="925" y="695" class="class-method">+ login()</text>
+
+  <!-- Classe useAuth Hook -->
+  <rect x="1060" y="620" width="120" height="80" class="hook-class" rx="5"/>
+  <text x="1120" y="635" class="class-title">useAuth</text>
+  <line x1="1060" y1="645" x2="1180" y2="645" stroke="#ec4899" stroke-width="1"/>
+  <text x="1065" y="660" class="class-text">- context: AuthContext</text>
+  <line x1="1060" y1="670" x2="1180" y2="670" stroke="#ec4899" stroke-width="1"/>
+  <text x="1065" y="685" class="class-method">+ useContext()</text>
+  <text x="1065" y="695" class="class-method">+ navigate()</text>
+
+  <!-- Package Frontend Services -->
+  <rect x="1250" y="580" width="300" height="200" class="package-border" rx="10"/>
+  <text x="1260" y="600" class="package-text">Frontend Services</text>
+
+  <!-- Classe API Service -->
+  <rect x="1270" y="620" width="120" height="80" class="service-class" rx="5"/>
+  <text x="1330" y="635" class="class-title">ApiService</text>
+  <line x1="1270" y1="645" x2="1390" y2="645" stroke="#3b82f6" stroke-width="1"/>
+  <text x="1275" y="660" class="class-text">- baseURL: String</text>
+  <text x="1275" y="672" class="class-text">- axios: AxiosInstance</text>
+  <line x1="1270" y1="680" x2="1390" y2="680" stroke="#3b82f6" stroke-width="1"/>
+  <text x="1275" y="695" class="class-method">+ request()</text>
+
+  <!-- Classe MarketService -->
+  <rect x="1410" y="620" width="120" height="80" class="service-class" rx="5"/>
+  <text x="1470" y="635" class="class-title">MarketService</text>
+  <line x1="1410" y1="645" x2="1530" y2="645" stroke="#3b82f6" stroke-width="1"/>
+  <text x="1415" y="660" class="class-text">- api: ApiService</text>
+  <line x1="1410" y1="670" x2="1530" y2="670" stroke="#3b82f6" stroke-width="1"/>
+  <text x="1415" y="685" class="class-method">+ getMarkets()</text>
+  <text x="1415" y="695" class="class-method">+ getPrices()</text>
+
+  <!-- Relations principales -->
+  
+  <!-- User -> Portfolio (1:1) -->
+  <line x1="230" y1="160" x2="260" y2="160" class="association"/>
+  <text x="240" y="155" class="class-method" style="font-size: 9px;">1</text>
+  <text x="250" y="155" class="class-method" style="font-size: 9px;">1</text>
+
+  <!-- User -> Wallet (1:1) -->
+  <line x1="150" y1="220" x2="150" y2="260" class="association"/>
+  <text x="155" y="235" class="class-method" style="font-size: 9px;">1</text>
+  <text x="155" y="255" class="class-method" style="font-size: 9px;">1</text>
+
+  <!-- User -> Watchlist (1:*) -->
+  <line x1="150" y1="220" x2="150" y2="400" class="association"/>
+  <text x="155" y="235" class="class-method" style="font-size: 9px;">1</text>
+  <text x="155" y="395" class="class-method" style="font-size: 9px;">*</text>
+
+  <!-- Portfolio -> Market (dependency) -->
+  <line x1="345" y1="240" x2="345" y2="260" class="dependency"/>
+
+  <!-- BinanceService -> Market (dependency) -->
+  <line x1="520" y1="150" x2="430" y2="320" class="dependency"/>
+
+  <!-- SyncService -> BinanceService (dependency) -->
+  <line x1="595" y1="220" x2="595" y2="200" class="dependency"/>
+
+  <!-- WebSocketService -> Market (dependency) -->
+  <line x1="690" y1="150" x2="430" y2="320" class="dependency"/>
+
+  <!-- Frontend Components -> AuthContext (dependency) -->
+  <line x1="980" y1="180" x2="980" y2="620" class="dependency"/>
+  <line x1="1130" y1="180" x2="980" y2="620" class="dependency"/>
+
+  <!-- useAuth -> AuthContext (dependency) -->
+  <line x1="1060" y1="660" x2="1040" y2="660" class="dependency"/>
+
+  <!-- Frontend Services -> Backend API (dependency) -->
+  <line x1="1270" y1="660" x2="670" y2="150" class="dependency"/>
+
+  <!-- Légende -->
+  <rect x="50" y="800" width="500" height="150" stroke="#6b7280" stroke-width="1" fill="#f9fafb" rx="5"/>
+  <text x="300" y="820" class="class-title">Légende des Classes</text>
+  
+  <rect x="70" y="840" width="20" height="15" class="model-class"/>
+  <text x="100" y="852" class="class-text">Modèles Backend (MongoDB)</text>
+  
+  <rect x="70" y="860" width="20" height="15" class="service-class"/>
+  <text x="100" y="872" class="class-text">Services Backend/Frontend</text>
+  
+  <rect x="70" y="880" width="20" height="15" class="component-class"/>
+  <text x="100" y="892" class="class-text">Composants React</text>
+  
+  <rect x="270" y="840" width="20" height="15" class="context-class"/>
+  <text x="300" y="852" class="class-text">Contextes React</text>
+  
+  <rect x="270" y="860" width="20" height="15" class="hook-class"/>
+  <text x="300" y="872" class="class-text">Hooks React</text>
+  
+  <line x1="70" y1="900" x2="100" y2="900" class="association"/>
+  <text x="110" y="905" class="class-text">Association</text>
+  
+  <line x1="200" y1="900" x2="230" y2="900" class="dependency"/>
+  <text x="240" y="905" class="class-text">Dépendance</text>
+
+  <!-- Informations sur l'architecture -->
+  <rect x="600" y="800" width="950" height="150" stroke="#6b7280" stroke-width="1" fill="#f9fafb" rx="5"/>
+  <text x="1075" y="820" class="class-title">Architecture du Système</text>
+  
+  <text x="620" y="840" class="class-text">• Architecture MERN (MongoDB, Express.js, React, Node.js)</text>
+  <text x="620" y="855" class="class-text">• Backend: API REST avec WebSocket pour temps réel</text>
+  <text x="620" y="870" class="class-text">• Frontend: React avec Context API et React Query</text>
+  <text x="620" y="885" class="class-text">• Services externes: Binance API pour données de marché</text>
+  <text x="620" y="900" class="class-text">• Authentification: JWT avec rôles (client/admin)</text>
+  <text x="620" y="915" class="class-text">• Base de données: MongoDB avec Mongoose ODM</text>
+  <text x="620" y="930" class="class-text">• Communication temps réel: WebSocket pour prix et notifications</text>
+
+</svg>

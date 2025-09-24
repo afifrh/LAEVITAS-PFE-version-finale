@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1400" height="1000" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .title { font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; fill: #2563eb; }
+      .actor-text { font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; fill: #1f2937; }
+      .usecase-text { font-family: Arial, sans-serif; font-size: 12px; fill: #374151; text-anchor: middle; }
+      .system-border { stroke: #6b7280; stroke-width: 3; fill: none; stroke-dasharray: 10,5; }
+      .actor { stroke: #1f2937; stroke-width: 2; fill: #f3f4f6; }
+      .usecase { stroke: #3b82f6; stroke-width: 2; fill: #dbeafe; }
+      .usecase-auth { stroke: #10b981; stroke-width: 2; fill: #d1fae5; }
+      .usecase-admin { stroke: #dc2626; stroke-width: 2; fill: #fee2e2; }
+      .usecase-trading { stroke: #f59e0b; stroke-width: 2; fill: #fef3c7; }
+      .usecase-wallet { stroke: #8b5cf6; stroke-width: 2; fill: #ede9fe; }
+      .association { stroke: #6b7280; stroke-width: 1.5; }
+      .include { stroke: #10b981; stroke-width: 1.5; stroke-dasharray: 5,3; }
+      .extend { stroke: #dc2626; stroke-width: 1.5; stroke-dasharray: 5,3; }
+      .legend-text { font-family: Arial, sans-serif; font-size: 11px; fill: #374151; }
+    </style>
+  </defs>
+
+  <!-- Titre -->
+  <text x="700" y="30" class="title" text-anchor="middle">Diagramme de Cas d'Utilisation - Laevitas Trading Platform</text>
+
+  <!-- Bordure du système -->
+  <rect x="200" y="60" width="1000" height="850" class="system-border" rx="20"/>
+  <text x="700" y="85" class="actor-text" text-anchor="middle">Système Laevitas Trading Platform</text>
+
+  <!-- Acteurs -->
+  <!-- Utilisateur Client -->
+  <g id="client-actor">
+    <ellipse cx="100" cy="150" rx="30" ry="50" class="actor"/>
+    <line x1="100" y1="200" x2="100" y2="250" class="actor"/>
+    <line x1="70" y1="220" x2="130" y2="220" class="actor"/>
+    <line x1="100" y1="250" x2="80" y2="290" class="actor"/>
+    <line x1="100" y1="250" x2="120" y2="290" class="actor"/>
+    <text x="100" y="310" class="actor-text" text-anchor="middle">Utilisateur</text>
+    <text x="100" y="325" class="actor-text" text-anchor="middle">Client</text>
+  </g>
+
+  <!-- Administrateur -->
+  <g id="admin-actor">
+    <ellipse cx="100" cy="450" rx="30" ry="50" class="actor"/>
+    <line x1="100" y1="500" x2="100" y2="550" class="actor"/>
+    <line x1="70" y1="520" x2="130" y2="520" class="actor"/>
+    <line x1="100" y1="550" x2="80" y2="590" class="actor"/>
+    <line x1="100" y1="550" x2="120" y2="590" class="actor"/>
+    <text x="100" y="610" class="actor-text" text-anchor="middle">Administrateur</text>
+  </g>
+
+  <!-- Système Externe Binance -->
+  <g id="binance-actor">
+    <ellipse cx="1300" cy="300" rx="30" ry="50" class="actor"/>
+    <line x1="1300" y1="350" x2="1300" y2="400" class="actor"/>
+    <line x1="1270" y1="370" x2="1330" y2="370" class="actor"/>
+    <line x1="1300" y1="400" x2="1280" y2="440" class="actor"/>
+    <line x1="1300" y1="400" x2="1320" y2="440" class="actor"/>
+    <text x="1300" y="460" class="actor-text" text-anchor="middle">API Binance</text>
+    <text x="1300" y="475" class="actor-text" text-anchor="middle">(Externe)</text>
+  </g>
+
+  <!-- WebSocket Service -->
+  <g id="websocket-actor">
+    <ellipse cx="1300" cy="600" rx="30" ry="50" class="actor"/>
+    <line x1="1300" y1="650" x2="1300" y2="700" class="actor"/>
+    <line x1="1270" y1="670" x2="1330" y2="670" class="actor"/>
+    <line x1="1300" y1="700" x2="1280" y2="740" class="actor"/>
+    <line x1="1300" y1="700" x2="1320" y2="740" class="actor"/>
+    <text x="1300" y="760" class="actor-text" text-anchor="middle">Service</text>
+    <text x="1300" y="775" class="actor-text" text-anchor="middle">WebSocket</text>
+  </g>
+
+  <!-- Cas d'utilisation - Authentification -->
+  <ellipse cx="350" cy="150" rx="80" ry="30" class="usecase-auth"/>
+  <text x="350" y="155" class="usecase-text">S'inscrire</text>
+
+  <ellipse cx="350" cy="200" rx="80" ry="30" class="usecase-auth"/>
+  <text x="350" y="205" class="usecase-text">Se connecter</text>
+
+  <ellipse cx="350" cy="250" rx="80" ry="30" class="usecase-auth"/>
+  <text x="350" y="255" class="usecase-text">Se déconnecter</text>
+
+  <ellipse cx="350" cy="300" rx="80" ry="30" class="usecase-auth"/>
+  <text x="350" y="305" class="usecase-text">Gérer profil</text>
+
+  <!-- Cas d'utilisation - Trading et Marché -->
+  <ellipse cx="550" cy="150" rx="90" ry="30" class="usecase-trading"/>
+  <text x="550" y="155" class="usecase-text">Consulter marchés</text>
+
+  <ellipse cx="550" cy="200" rx="90" ry="30" class="usecase-trading"/>
+  <text x="550" y="205" class="usecase-text">Voir données temps réel</text>
+
+  <ellipse cx="550" cy="250" rx="90" ry="30" class="usecase-trading"/>
+  <text x="550" y="255" class="usecase-text">Gérer watchlist</text>
+
+  <ellipse cx="750" cy="150" rx="90" ry="30" class="usecase-trading"/>
+  <text x="750" y="155" class="usecase-text">Analyser graphiques</text>
+
+  <ellipse cx="750" cy="200" rx="90" ry="30" class="usecase-trading"/>
+  <text x="750" y="205" class="usecase-text">Rechercher actifs</text>
+
+  <!-- Cas d'utilisation - Portfolio -->
+  <ellipse cx="550" cy="350" rx="90" ry="30" class="usecase"/>
+  <text x="550" y="355" class="usecase-text">Gérer portfolio</text>
+
+  <ellipse cx="550" cy="400" rx="90" ry="30" class="usecase"/>
+  <text x="550" y="405" class="usecase-text">Ajouter actifs</text>
+
+  <ellipse cx="750" cy="350" rx="90" ry="30" class="usecase"/>
+  <text x="750" y="355" class="usecase-text">Voir transactions</text>
+
+  <ellipse cx="750" cy="400" rx="90" ry="30" class="usecase"/>
+  <text x="750" y="405" class="usecase-text">Calculer performance</text>
+
+  <!-- Cas d'utilisation - Wallet -->
+  <ellipse cx="550" cy="500" rx="90" ry="30" class="usecase-wallet"/>
+  <text x="550" y="505" class="usecase-text">Gérer portefeuille</text>
+
+  <ellipse cx="550" cy="550" rx="90" ry="30" class="usecase-wallet"/>
+  <text x="550" y="555" class="usecase-text">Effectuer dépôt</text>
+
+  <ellipse cx="750" cy="500" rx="90" ry="30" class="usecase-wallet"/>
+  <text x="750" y="505" class="usecase-text">Effectuer retrait</text>
+
+  <ellipse cx="750" cy="550" rx="90" ry="30" class="usecase-wallet"/>
+  <text x="750" y="555" class="usecase-text">Voir historique</text>
+
+  <!-- Cas d'utilisation - Administration -->
+  <ellipse cx="550" cy="650" rx="90" ry="30" class="usecase-admin"/>
+  <text x="550" y="655" class="usecase-text">Gérer utilisateurs</text>
+
+  <ellipse cx="750" cy="650" rx="90" ry="30" class="usecase-admin"/>
+  <text x="750" y="655" class="usecase-text">Voir statistiques</text>
+
+  <ellipse cx="550" cy="700" rx="90" ry="30" class="usecase-admin"/>
+  <text x="550" y="705" class="usecase-text">Modérer comptes</text>
+
+  <ellipse cx="750" cy="700" rx="90" ry="30" class="usecase-admin"/>
+  <text x="750" y="705" class="usecase-text">Configurer système</text>
+
+  <ellipse cx="950" cy="650" rx="90" ry="30" class="usecase-admin"/>
+  <text x="950" y="655" class="usecase-text">Gérer permissions</text>
+
+  <!-- Cas d'utilisation - Système -->
+  <ellipse cx="950" cy="300" rx="90" ry="30" class="usecase"/>
+  <text x="950" y="305" class="usecase-text">Synchroniser données</text>
+
+  <ellipse cx="950" cy="350" rx="90" ry="30" class="usecase"/>
+  <text x="950" y="355" class="usecase-text">Diffuser WebSocket</text>
+
+  <ellipse cx="950" cy="400" rx="90" ry="30" class="usecase"/>
+  <text x="950" y="405" class="usecase-text">Valider transactions</text>
+
+  <!-- Associations Client -->
+  <line x1="130" y1="150" x2="270" y2="150" class="association"/>
+  <line x1="130" y1="170" x2="270" y2="200" class="association"/>
+  <line x1="130" y1="190" x2="270" y2="250" class="association"/>
+  <line x1="130" y1="210" x2="270" y2="300" class="association"/>
+  <line x1="130" y1="230" x2="460" y2="150" class="association"/>
+  <line x1="130" y1="250" x2="460" y2="200" class="association"/>
+  <line x1="130" y1="270" x2="460" y2="250" class="association"/>
+  <line x1="130" y1="290" x2="660" y2="150" class="association"/>
+  <line x1="130" y1="310" x2="660" y2="200" class="association"/>
+  <line x1="130" y1="330" x2="460" y2="350" class="association"/>
+  <line x1="130" y1="350" x2="460" y2="400" class="association"/>
+  <line x1="130" y1="370" x2="660" y2="350" class="association"/>
+  <line x1="130" y1="390" x2="660" y2="400" class="association"/>
+  <line x1="130" y1="410" x2="460" y2="500" class="association"/>
+  <line x1="130" y1="430" x2="460" y2="550" class="association"/>
+  <line x1="130" y1="450" x2="660" y2="500" class="association"/>
+  <line x1="130" y1="470" x2="660" y2="550" class="association"/>
+
+  <!-- Associations Admin -->
+  <line x1="130" y1="450" x2="270" y2="150" class="association"/>
+  <line x1="130" y1="470" x2="270" y2="200" class="association"/>
+  <line x1="130" y1="490" x2="270" y2="250" class="association"/>
+  <line x1="130" y1="510" x2="270" y2="300" class="association"/>
+  <line x1="130" y1="530" x2="460" y2="650" class="association"/>
+  <line x1="130" y1="550" x2="660" y2="650" class="association"/>
+  <line x1="130" y1="570" x2="460" y2="700" class="association"/>
+  <line x1="130" y1="590" x2="660" y2="700" class="association"/>
+  <line x1="130" y1="610" x2="860" y2="650" class="association"/>
+
+  <!-- Associations Systèmes Externes -->
+  <line x1="1270" y1="300" x2="1040" y2="300" class="association"/>
+  <line x1="1270" y1="320" x2="1040" y2="350" class="association"/>
+  <line x1="1270" y1="600" x2="1040" y2="350" class="association"/>
+
+  <!-- Relations Include/Extend -->
+  <line x1="640" y1="200" x2="860" y2="300" class="include"/>
+  <text x="750" y="245" class="legend-text">&lt;&lt;include&gt;&gt;</text>
+
+  <line x1="640" y1="350" x2="860" y2="400" class="include"/>
+  <text x="750" y="380" class="legend-text">&lt;&lt;include&gt;&gt;</text>
+
+  <!-- Légende -->
+  <g id="legend">
+    <rect x="50" y="820" width="300" height="120" stroke="#6b7280" stroke-width="1" fill="#f9fafb" rx="5"/>
+    <text x="200" y="840" class="actor-text" text-anchor="middle">Légende</text>
+    
+    <ellipse cx="80" cy="860" rx="15" ry="8" class="usecase-auth"/>
+    <text x="110" y="865" class="legend-text">Authentification</text>
+    
+    <ellipse cx="80" cy="880" rx="15" ry="8" class="usecase-trading"/>
+    <text x="110" y="885" class="legend-text">Trading/Marché</text>
+    
+    <ellipse cx="80" cy="900" rx="15" ry="8" class="usecase"/>
+    <text x="110" y="905" class="legend-text">Portfolio</text>
+    
+    <ellipse cx="200" cy="860" rx="15" ry="8" class="usecase-wallet"/>
+    <text x="230" y="865" class="legend-text">Wallet</text>
+    
+    <ellipse cx="200" cy="880" rx="15" ry="8" class="usecase-admin"/>
+    <text x="230" y="885" class="legend-text">Administration</text>
+    
+    <line x1="200" y1="900" x2="230" y2="900" class="include"/>
+    <text x="240" y="905" class="legend-text">&lt;&lt;include&gt;&gt;</text>
+  </g>
+
+</svg>

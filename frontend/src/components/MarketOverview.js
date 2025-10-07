@@ -13,9 +13,12 @@ import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import marketService from '../services/marketService';
 import CandlestickChart from './charts/CandlestickChart';
 import PriceChart from './charts/PriceChart';
+import { useAuth } from '../contexts/AuthContext';
+import { debugWebSocket } from '../utils/websocketDebug';
 import './MarketOverview.css';
 
 const MarketOverview = () => {
+  const { isAuthenticated, status } = useAuth();
   const [markets, setMarkets] = useState([]);
   const [filteredMarkets, setFilteredMarkets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,12 +38,24 @@ const MarketOverview = () => {
   // Charger les données initiales
   useEffect(() => {
     loadInitialData();
-    connectToWebSocket();
     
     return () => {
       marketService.disconnect();
     };
   }, []);
+
+  // Se connecter au WebSocket seulement quand l'utilisateur est authentifié
+  useEffect(() => {
+    if (isAuthenticated && status === 'authenticated') {
+      connectToWebSocket();
+    }
+    
+    return () => {
+      if (isAuthenticated) {
+        marketService.disconnect();
+      }
+    };
+  }, [isAuthenticated, status]);
 
   // Charger les données initiales
   const loadInitialData = async () => {
@@ -69,8 +84,14 @@ const MarketOverview = () => {
   // Se connecter au WebSocket
   const connectToWebSocket = async () => {
     try {
+      console.log('🔌 Tentative de connexion WebSocket...');
+      
+      // Diagnostic préliminaire
+      debugWebSocket();
+      
       await marketService.connectWebSocket();
       setConnectionStatus('connected');
+      console.log('✅ WebSocket connecté avec succès dans MarketOverview');
       
       // S'abonner aux mises à jour des marchés affichés
       markets.forEach(market => {
@@ -78,8 +99,15 @@ const MarketOverview = () => {
       });
       
     } catch (err) {
-      console.error('Erreur de connexion WebSocket:', err);
+      console.error('❌ Erreur de connexion WebSocket dans MarketOverview:', err);
       setConnectionStatus('disconnected');
+      
+      // Afficher des conseils de dépannage
+      console.log('🔧 Conseils de dépannage:');
+      console.log('1. Vérifiez que vous êtes connecté');
+      console.log('2. Actualisez la page');
+      console.log('3. Vérifiez que le serveur backend fonctionne');
+      console.log('4. Ouvrez la console pour plus de détails');
     }
   };
 

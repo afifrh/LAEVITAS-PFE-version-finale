@@ -199,6 +199,37 @@ class MarketService {
     }
   }
 
+  // Supprimer toutes les alertes pour un instrument de watchlist
+  async removeAlert(watchlistId, symbol) {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await axios.delete(
+        `${API_BASE_URL}/markets/user/watchlists/${watchlistId}/items/${symbol}/alerts`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de la suppression des alertes:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  // Basculer l'état des alertes (activer/désactiver toutes) pour un instrument
+  async toggleAlert(watchlistId, symbol, isActive = undefined) {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await axios.put(
+        `${API_BASE_URL}/markets/user/watchlists/${watchlistId}/items/${symbol}/alerts/toggle`,
+        isActive === undefined ? {} : { isActive },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors du toggle des alertes:', error);
+      throw this.handleError(error);
+    }
+  }
+
   // ==================== WEBSOCKET METHODS ====================
 
   // Se connecter au WebSocket
@@ -214,17 +245,53 @@ class MarketService {
     return new Promise((resolve, reject) => {
       try {
         this.isConnecting = true;
-        const token = localStorage.getItem('accessToken');
+        // Récupérer le token depuis plusieurs sources pour compatibilité
+        const token =
+          localStorage.getItem('accessToken') ||
+          localStorage.getItem('token') ||
+          sessionStorage.getItem('accessToken') ||
+          sessionStorage.getItem('token');
+        
+        console.log('🔍 Diagnostic WebSocket:');
+        console.log('- Token présent:', token ? '✅ Oui' : '❌ Non');
+        if (!token) {
+          console.log('- Astuce: Le frontend attend généralement `accessToken`.');
+          console.log('- Compatibilité: `token` est aussi accepté désormais.');
+        }
         
         if (!token) {
-          throw new Error('Token d\'authentification manquant');
+          const error = new Error('Token d\'authentification manquant - Veuillez vous connecter');
+          console.error('❌ Erreur WebSocket:', error.message);
+          throw error;
+        }
+
+        // Vérifier si le token est expiré
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const now = Math.floor(Date.now() / 1000);
+          const isExpired = payload.exp < now;
+          
+          console.log('- Token expiré:', isExpired ? '❌ Oui' : '✅ Non');
+          console.log('- Expiration:', new Date(payload.exp * 1000).toLocaleString());
+          
+          if (isExpired) {
+            const error = new Error('Token d\'authentification expiré - Veuillez vous reconnecter');
+            console.error('❌ Erreur WebSocket:', error.message);
+            throw error;
+          }
+        } catch (tokenError) {
+          console.error('❌ Erreur lors de la vérification du token:', tokenError);
+          const error = new Error('Token d\'authentification invalide - Veuillez vous reconnecter');
+          throw error;
         }
 
         const wsUrl = `${WS_BASE_URL}?token=${encodeURIComponent(token)}`;
+        console.log('- URL WebSocket:', wsUrl);
+        
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
-          console.log('🔌 WebSocket connecté');
+          console.log('✅ WebSocket connecté avec succès');
           this.isConnecting = false;
           this.reconnectAttempts = 0;
           this.startHeartbeat();
@@ -236,9 +303,24 @@ class MarketService {
         };
 
         this.ws.onclose = (event) => {
-          console.log('🔌 WebSocket fermé:', event.code, event.reason);
+          console.log('🔌 WebSocket fermé:', {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean
+          });
           this.isConnecting = false;
           this.stopHeartbeat();
+          
+          // Codes d'erreur spécifiques
+          if (event.code === 1006) {
+            console.error('❌ Connexion WebSocket fermée anormalement - Vérifiez que le serveur est accessible');
+          } else if (event.code === 1002) {
+            console.error('❌ Erreur de protocole WebSocket');
+          } else if (event.code === 1003) {
+            console.error('❌ Données WebSocket non acceptées');
+          } else if (event.code === 1011) {
+            console.error('❌ Erreur serveur WebSocket');
+          }
           
           if (event.code !== 1000) { // Pas une fermeture normale
             this.handleReconnect();
@@ -246,10 +328,26 @@ class MarketService {
         };
 
         this.ws.onerror = (error) => {
-          console.error('❌ Erreur WebSocket:', error);
+          console.error('❌ Erreur de connexion WebSocket:', error);
+          console.error('❌ Vérifiez que:');
+          console.error('  1. Le serveur backend est démarré (port 5000)');
+          console.error('  2. Vous êtes connecté avec un token valide');
+          console.error('  3. L\'URL WebSocket est correcte:', WS_BASE_URL);
           this.isConnecting = false;
-          reject(error);
+          reject(new Error('Erreur de connexion WebSocket - Vérifiez la connexion au serveur'));
         };
+
+        // Timeout de connexion
+        setTimeout(() => {
+          if (this.isConnecting) {
+            console.error('❌ Timeout de connexion WebSocket');
+            this.isConnecting = false;
+            if (this.ws) {
+              this.ws.close();
+            }
+            reject(new Error('Timeout de connexion WebSocket - Le serveur ne répond pas'));
+          }
+        }, 10000); // 10 secondes
 
       } catch (error) {
         this.isConnecting = false;
@@ -515,6 +613,17 @@ class MarketService {
         status: -1,
         data: null
       };
+    }
+  }
+
+  // Méthode pour obtenir les données de marché
+  async getMarketData() {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/market/overview`);
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des données de marché:', error);
+      throw this.handleError(error);
     }
   }
 

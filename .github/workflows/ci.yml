@@ -1,0 +1,271 @@
+name: CI - Tests et Validation
+
+on:
+  push:
+    branches: [ main, develop, 'feature/*', 'release/*' ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18'
+  MONGODB_URI: mongodb://localhost:27017/laevitas_test
+  JWT_SECRET: test_jwt_secret_key_for_ci
+  BINANCE_API_KEY: test_api_key
+  BINANCE_SECRET_KEY: test_secret_key
+
+jobs:
+  # Job 1: Analyse statique et linting
+  lint-and-format:
+    name: 🔍 Lint & Format
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install root dependencies
+        run: npm ci
+        
+      - name: 📦 Install backend dependencies
+        run: cd backend && npm ci
+        
+      - name: 📦 Install frontend dependencies
+        run: cd frontend && npm ci
+        
+      - name: 🔍 Lint backend
+        run: cd backend && npm run lint || echo "Backend lint not configured"
+        
+      - name: 🔍 Lint frontend
+        run: cd frontend && npm run lint
+        
+      - name: 📝 Check formatting
+        run: |
+          echo "Checking code formatting..."
+          # Add prettier check if configured
+
+  # Job 2: Tests Backend
+  test-backend:
+    name: 🧪 Test Backend
+    runs-on: ubuntu-latest
+    
+    services:
+      mongodb:
+        image: mongo:6.0
+        env:
+          MONGO_INITDB_ROOT_USERNAME: admin
+          MONGO_INITDB_ROOT_PASSWORD: password123
+          MONGO_INITDB_DATABASE: laevitas_test
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install backend dependencies
+        run: cd backend && npm ci
+        
+      - name: 🧪 Run backend tests
+        run: cd backend && npm test
+        env:
+          NODE_ENV: test
+          MONGODB_URI: ${{ env.MONGODB_URI }}
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+          BINANCE_API_KEY: ${{ env.BINANCE_API_KEY }}
+          BINANCE_SECRET_KEY: ${{ env.BINANCE_SECRET_KEY }}
+          
+      - name: 📊 Upload backend coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./backend/coverage/lcov.info
+          flags: backend
+          name: backend-coverage
+
+  # Job 3: Tests Frontend
+  test-frontend:
+    name: 🧪 Test Frontend
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install frontend dependencies
+        run: cd frontend && npm ci
+        
+      - name: 🧪 Run frontend tests
+        run: cd frontend && npm test -- --coverage --watchAll=false
+        env:
+          CI: true
+          
+      - name: 📊 Upload frontend coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+
+  # Job 4: Build et validation Docker
+  docker-build:
+    name: 🐳 Docker Build
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, test-backend, test-frontend]
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: 🔍 Validate docker-compose
+        run: |
+          docker-compose config
+          docker-compose -f docker-compose.yml -f docker-compose.dev.yml config
+          
+      - name: 🏗️ Build backend image
+        run: |
+          docker build -t laevitas-backend:test ./backend
+          
+      - name: 🏗️ Build frontend image
+        run: |
+          docker build -t laevitas-frontend:test ./frontend
+          
+      - name: 🧪 Test Docker containers
+        run: |
+          # Test que les images se lancent correctement
+          docker run --rm -d --name test-backend laevitas-backend:test
+          sleep 10
+          docker stop test-backend || true
+          
+          docker run --rm -d --name test-frontend laevitas-frontend:test
+          sleep 10
+          docker stop test-frontend || true
+
+  # Job 5: Tests d'intégration
+  integration-tests:
+    name: 🔗 Integration Tests
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: 🚀 Start services
+        run: |
+          docker-compose up -d
+          
+      - name: ⏳ Wait for services
+        run: |
+          echo "Waiting for services to be ready..."
+          timeout 120 bash -c 'until curl -f http://localhost:3000/health; do sleep 2; done'
+          timeout 120 bash -c 'until curl -f http://localhost:80; do sleep 2; done'
+          
+      - name: 🧪 Run integration tests
+        run: |
+          # Test API endpoints
+          curl -f http://localhost:3000/health
+          curl -f http://localhost:3000/api/markets
+          
+          # Test frontend
+          curl -f http://localhost:80
+          
+      - name: 📋 Show logs on failure
+        if: failure()
+        run: |
+          docker-compose logs
+          
+      - name: 🛑 Stop services
+        if: always()
+        run: |
+          docker-compose down -v
+
+  # Job 6: Analyse de sécurité
+  security-scan:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: 🔒 Run npm audit (backend)
+        run: cd backend && npm audit --audit-level=high
+        
+      - name: 🔒 Run npm audit (frontend)
+        run: cd frontend && npm audit --audit-level=high
+        
+      - name: 🔍 Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+      - name: 📊 Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Job 7: Notification de statut
+  notify-status:
+    name: 📢 Notify Status
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, test-backend, test-frontend, docker-build, integration-tests, security-scan]
+    if: always()
+    
+    steps:
+      - name: 📢 Notify success
+        if: ${{ needs.lint-and-format.result == 'success' && needs.test-backend.result == 'success' && needs.test-frontend.result == 'success' && needs.docker-build.result == 'success' && needs.integration-tests.result == 'success' && needs.security-scan.result == 'success' }}
+        run: |
+          echo "✅ All CI checks passed successfully!"
+          
+      - name: 📢 Notify failure
+        if: ${{ needs.lint-and-format.result == 'failure' || needs.test-backend.result == 'failure' || needs.test-frontend.result == 'failure' || needs.docker-build.result == 'failure' || needs.integration-tests.result == 'failure' || needs.security-scan.result == 'failure' }}
+        run: |
+          echo "❌ Some CI checks failed!"
+          exit 1

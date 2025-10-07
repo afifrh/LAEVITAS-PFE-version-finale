@@ -1,5 +1,5 @@
-// Service API CoinGecko pour les données de cryptomonnaies
-const COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3';
+// Service API CoinGecko pour les données de cryptomonnaies (via proxy backend)
+const COINGECKO_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api') + '/coingecko';
 
 class CoinGeckoService {
   // Récupérer les top cryptomonnaies par market cap
@@ -13,7 +13,8 @@ class CoinGeckoService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+      return result.data || result; // Support pour les réponses du proxy backend
     } catch (error) {
       console.error('Erreur lors de la récupération des cryptomonnaies:', error);
       throw error;
@@ -31,7 +32,8 @@ class CoinGeckoService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+      return result.data || result; // Support pour les réponses du proxy backend
     } catch (error) {
       console.error(`Erreur lors de la récupération des détails de ${coinId}:`, error);
       throw error;
@@ -49,7 +51,8 @@ class CoinGeckoService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+      return result.data || result; // Support pour les réponses du proxy backend
     } catch (error) {
       console.error(`Erreur lors de la récupération de l'historique de ${coinId}:`, error);
       throw error;
@@ -65,7 +68,8 @@ class CoinGeckoService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+      return result.data || result; // Support pour les réponses du proxy backend
     } catch (error) {
       console.error('Erreur lors de la récupération des données globales:', error);
       throw error;
@@ -81,7 +85,8 @@ class CoinGeckoService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+      return result.data || result; // Support pour les réponses du proxy backend
     } catch (error) {
       console.error('Erreur lors de la recherche:', error);
       throw error;
@@ -97,7 +102,8 @@ class CoinGeckoService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+      return result.data || result; // Support pour les réponses du proxy backend
     } catch (error) {
       console.error('Erreur lors de la récupération des trending coins:', error);
       throw error;
@@ -113,7 +119,8 @@ class CoinGeckoService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+      return result.data || result; // Support pour les réponses du proxy backend
     } catch (error) {
       console.error('Erreur lors de la récupération des exchanges:', error);
       throw error;

@@ -18,6 +18,7 @@ const portfolioRoutes = require('./routes/portfolio');
 const walletRoutes = require('./routes/wallet');
 const marketsRoutes = require('./routes/markets');
 const binanceRoutes = require('./routes/binanceRoutes');
+const coinGeckoRoutes = require('./routes/coinGecko');
 
 // Initialisation de l'application Express
 const app = express();
@@ -37,8 +38,28 @@ app.use(helmet());
 app.use(morgan('combined'));
 
 // Configuration CORS
+// Autoriser les origines de développement courantes (localhost:3000/3001, 127.0.0.1)
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'http://192.168.1.11:3001'
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Autoriser les requêtes sans origin (ex: clients non navigateur)
+    if (!origin) return callback(null, true);
+
+    // Autoriser les origines explicitement listées ou tout localhost avec port
+    const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+    if (allowedOrigins.includes(origin) || isLocalhost) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin ${origin} non autorisée par CORS`));
+  },
   credentials: true,
   optionsSuccessStatus: 200
 }));
@@ -52,10 +73,13 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/laevitas-
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => {
+.then(async () => {
   console.log('✅ Connexion à MongoDB réussie');
   // Créer l'utilisateur admin par défaut
-  require('./utils/createAdmin')();
+  await require('./utils/createAdmin')();
+  // Initialiser les portefeuilles de test
+  const { seedWallets } = require('./utils/seedWallets');
+  await seedWallets();
 })
 .catch((error) => {
   console.error('❌ Erreur de connexion à MongoDB:', error);
@@ -70,6 +94,7 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/markets', marketsRoutes);
 app.use('/api/binance', binanceRoutes);
+app.use('/api/coingecko', coinGeckoRoutes);
 
 // Route de test
 app.get('/api/health', (req, res) => {

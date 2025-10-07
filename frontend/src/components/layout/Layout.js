@@ -44,7 +44,7 @@ const Layout = ({ children }) => {
       description: 'Mes listes de suivi'
     },
     {
-      name: 'Portefeuille',
+      name: 'Wallet',
       href: '/wallet',
       icon: CreditCardIcon,
       description: 'Gestion des fonds'

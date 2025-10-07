@@ -1,0 +1,73 @@
+# OWASP ZAP Rules pour Laevitas Trading Platform
+# Format: RULE_ID	THRESHOLD	[DESCRIPTION]
+
+# Règles de base
+10020	MEDIUM	# Missing Anti-clickjacking Header
+10021	MEDIUM	# X-Content-Type-Options Header Missing
+10023	MEDIUM	# Information Disclosure - Debug Error Messages
+10024	MEDIUM	# Information Disclosure - Sensitive Information in URL
+10025	MEDIUM	# Information Disclosure - Sensitive Information in HTTP Referrer Header
+10026	MEDIUM	# HTTP Parameter Override
+10027	MEDIUM	# Information Disclosure - Suspicious Comments
+10028	MEDIUM	# Open Redirect
+10029	MEDIUM	# Cookie Poisoning
+10030	MEDIUM	# User Controllable Charset
+10031	MEDIUM	# User Controllable HTML Element Attribute (Potential XSS)
+10032	MEDIUM	# Viewstate Scanner
+10033	MEDIUM	# Directory Browsing
+10034	MEDIUM	# Heartbleed OpenSSL Vulnerability
+10035	MEDIUM	# Strict-Transport-Security Header Not Set
+10036	MEDIUM	# HTTP Server Response Header
+10037	MEDIUM	# Server Leaks Information via "X-Powered-By" HTTP Response Header Field(s)
+10038	MEDIUM	# Content Security Policy (CSP) Header Not Set
+10039	MEDIUM	# X-Frame-Options Header Not Set
+10040	MEDIUM	# Secure Pages Include Mixed Content
+10041	MEDIUM	# HTTP to HTTPS Insecure Transition in Form Post
+10042	MEDIUM	# HTTPS to HTTP Insecure Transition in Form Post
+10043	MEDIUM	# User Controllable JavaScript Event (XSS)
+10044	MEDIUM	# Big Redirect Detected (Potential Sensitive Information Leak)
+10045	MEDIUM	# Source Code Disclosure - /WEB-INF folder
+10046	MEDIUM	# Source Code Disclosure - Git
+10047	MEDIUM	# HTTPS Content Available via HTTP
+10048	MEDIUM	# Remote Code Execution - Shell Shock
+10049	MEDIUM	# Content Cacheability
+10050	MEDIUM	# Retrieved from Cache
+10051	MEDIUM	# Relative Path Confusion
+10052	MEDIUM	# X-ChromeLogger-Data (XCOLD) Header Information Leak
+10053	MEDIUM	# Apache Range Header DoS (CVE-2011-3192)
+10054	MEDIUM	# Cookie Without Secure Flag
+10055	MEDIUM	# CSP Scanner
+10056	MEDIUM	# X-Debug-Token Information Leak
+10057	MEDIUM	# Username Hash Found
+10058	MEDIUM	# GET for POST
+10059	MEDIUM	# PII Scanner
+10060	MEDIUM	# Source Code Disclosure - SVN
+10061	MEDIUM	# X-AspNet-Version Response Header
+10062	MEDIUM	# PII Disclosure
+10063	MEDIUM	# Feature Policy Header Not Set
+10094	MEDIUM	# Base64 Disclosure
+10095	MEDIUM	# Backup File Disclosure
+10096	MEDIUM	# Timestamp Disclosure
+10097	MEDIUM	# Hash Disclosure
+10098	MEDIUM	# Cross-Domain Misconfiguration
+10099	MEDIUM	# Source Code Disclosure
+
+# Règles spécifiques aux APIs
+90001	MEDIUM	# Insecure HTTP Method
+90002	MEDIUM	# Private IP Disclosure
+90003	MEDIUM	# Sub Resource Integrity Attribute Missing
+90004	MEDIUM	# Insufficient Site Isolation Against Spectre Vulnerability
+90005	MEDIUM	# Sec-Fetch-Dest Header is Missing
+90006	MEDIUM	# Sec-Fetch-Site Header is Missing
+90007	MEDIUM	# Sec-Fetch-User Header is Missing
+
+# Règles pour les applications crypto/trading
+# Désactiver certaines règles qui peuvent générer des faux positifs
+#10109	OFF	# Modern Web Application (désactivé car peut générer des faux positifs)
+#10202	OFF	# Absence of Anti-CSRF Tokens (géré par l'application)
+
+# Règles personnalisées pour Laevitas
+# Recherche de clés API exposées
+#50001	HIGH	# API Key Exposure
+#50002	HIGH	# Secret Key Exposure
+#50003	HIGH	# Database Connection String Exposure

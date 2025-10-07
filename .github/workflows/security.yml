@@ -1,0 +1,425 @@
+name: Security - Analyse et Surveillance
+
+on:
+  schedule:
+    # Exécuter tous les jours à 2h du matin
+    - cron: '0 2 * * *'
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # Job 1: Analyse des dépendances
+  dependency-scan:
+    name: 🔍 Dependency Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: 📦 Install dependencies
+        run: |
+          npm ci
+          cd backend && npm ci
+          cd ../frontend && npm ci
+          
+      - name: 🔍 Audit backend dependencies
+        run: |
+          cd backend
+          npm audit --audit-level=moderate --json > ../backend-audit.json || true
+          npm audit --audit-level=moderate
+          
+      - name: 🔍 Audit frontend dependencies
+        run: |
+          cd frontend
+          npm audit --audit-level=moderate --json > ../frontend-audit.json || true
+          npm audit --audit-level=moderate
+          
+      - name: 📊 Generate dependency report
+        run: |
+          echo "# 📋 Rapport d'audit des dépendances" > dependency-report.md
+          echo "" >> dependency-report.md
+          echo "## Backend" >> dependency-report.md
+          echo "\`\`\`json" >> dependency-report.md
+          cat backend-audit.json >> dependency-report.md
+          echo "\`\`\`" >> dependency-report.md
+          echo "" >> dependency-report.md
+          echo "## Frontend" >> dependency-report.md
+          echo "\`\`\`json" >> dependency-report.md
+          cat frontend-audit.json >> dependency-report.md
+          echo "\`\`\`" >> dependency-report.md
+          
+      - name: 📤 Upload audit results
+        uses: actions/upload-artifact@v3
+        with:
+          name: dependency-audit
+          path: |
+            backend-audit.json
+            frontend-audit.json
+            dependency-report.md
+
+  # Job 2: Analyse de code statique
+  static-analysis:
+    name: 🔬 Static Code Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: 🔬 Run SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=laevitas-trading-platform
+            -Dsonar.organization=your-org
+            -Dsonar.sources=.
+            -Dsonar.exclusions=**/node_modules/**,**/coverage/**,**/build/**,**/dist/**
+            -Dsonar.javascript.lcov.reportPaths=backend/coverage/lcov.info,frontend/coverage/lcov.info
+            
+      - name: 🔍 Run ESLint Security
+        run: |
+          cd backend
+          npx eslint . --ext .js,.ts --format json --output-file ../backend-eslint.json || true
+          cd ../frontend
+          npx eslint . --ext .js,.jsx,.ts,.tsx --format json --output-file ../frontend-eslint.json || true
+          
+      - name: 📤 Upload static analysis results
+        uses: actions/upload-artifact@v3
+        with:
+          name: static-analysis
+          path: |
+            backend-eslint.json
+            frontend-eslint.json
+
+  # Job 3: Analyse des secrets
+  secret-scan:
+    name: 🔐 Secret Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: 🔐 Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+          
+      - name: 🔍 Run GitLeaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          config-path: .gitleaks.toml
+
+  # Job 4: Analyse des conteneurs Docker
+  container-scan:
+    name: 🐳 Container Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: 🏗️ Build images for scanning
+        run: |
+          docker build -t laevitas-backend:scan ./backend
+          docker build -t laevitas-frontend:scan ./frontend
+          
+      - name: 🔍 Run Trivy scan on backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'laevitas-backend:scan'
+          format: 'sarif'
+          output: 'backend-trivy.sarif'
+          
+      - name: 🔍 Run Trivy scan on frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'laevitas-frontend:scan'
+          format: 'sarif'
+          output: 'frontend-trivy.sarif'
+          
+      - name: 📊 Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'backend-trivy.sarif'
+          
+      - name: 📊 Upload Trivy scan results (frontend)
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'frontend-trivy.sarif'
+          
+      - name: 🔍 Run Snyk Container scan
+        continue-on-error: true
+        run: |
+          npm install -g snyk
+          snyk auth ${{ secrets.SNYK_TOKEN }}
+          snyk container test laevitas-backend:scan --json > backend-snyk.json || true
+          snyk container test laevitas-frontend:scan --json > frontend-snyk.json || true
+          
+      - name: 📤 Upload container scan results
+        uses: actions/upload-artifact@v3
+        with:
+          name: container-security
+          path: |
+            backend-trivy.sarif
+            frontend-trivy.sarif
+            backend-snyk.json
+            frontend-snyk.json
+
+  # Job 5: Tests de pénétration automatisés
+  penetration-tests:
+    name: 🎯 Penetration Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🚀 Start application
+        run: |
+          docker-compose up -d
+          sleep 30
+          
+      - name: 🎯 Run OWASP ZAP scan
+        uses: zaproxy/action-baseline@v0.7.0
+        with:
+          target: 'http://localhost'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a'
+          
+      - name: 🎯 Run Nuclei scan
+        run: |
+          docker run --rm --network host \
+            -v $(pwd):/workspace \
+            projectdiscovery/nuclei:latest \
+            -target http://localhost \
+            -o /workspace/nuclei-results.txt
+            
+      - name: 📊 Generate penetration test report
+        run: |
+          echo "# 🎯 Rapport de tests de pénétration" > pentest-report.md
+          echo "" >> pentest-report.md
+          echo "## OWASP ZAP Results" >> pentest-report.md
+          if [ -f report_html.html ]; then
+            echo "Voir le fichier report_html.html pour les détails" >> pentest-report.md
+          fi
+          echo "" >> pentest-report.md
+          echo "## Nuclei Results" >> pentest-report.md
+          if [ -f nuclei-results.txt ]; then
+            echo "\`\`\`" >> pentest-report.md
+            cat nuclei-results.txt >> pentest-report.md
+            echo "\`\`\`" >> pentest-report.md
+          fi
+          
+      - name: 🛑 Stop application
+        if: always()
+        run: |
+          docker-compose down -v
+          
+      - name: 📤 Upload penetration test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: penetration-tests
+          path: |
+            report_html.html
+            nuclei-results.txt
+            pentest-report.md
+
+  # Job 6: Surveillance de la conformité
+  compliance-check:
+    name: 📋 Compliance Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 📋 Check GDPR compliance
+        run: |
+          echo "Vérification de la conformité GDPR..."
+          # Rechercher des patterns de données personnelles
+          grep -r -i "email\|password\|phone\|address" --include="*.js" --include="*.ts" . > gdpr-check.txt || true
+          
+      - name: 📋 Check security headers
+        run: |
+          echo "Vérification des en-têtes de sécurité..."
+          # Vérifier la présence d'en-têtes de sécurité dans le code
+          grep -r -i "helmet\|cors\|csp\|hsts" --include="*.js" --include="*.ts" . > security-headers.txt || true
+          
+      - name: 📋 Check encryption usage
+        run: |
+          echo "Vérification de l'utilisation du chiffrement..."
+          grep -r -i "bcrypt\|crypto\|encrypt\|hash" --include="*.js" --include="*.ts" . > encryption-check.txt || true
+          
+      - name: 📊 Generate compliance report
+        run: |
+          echo "# 📋 Rapport de conformité" > compliance-report.md
+          echo "" >> compliance-report.md
+          echo "## GDPR - Données personnelles détectées" >> compliance-report.md
+          echo "\`\`\`" >> compliance-report.md
+          head -20 gdpr-check.txt >> compliance-report.md
+          echo "\`\`\`" >> compliance-report.md
+          echo "" >> compliance-report.md
+          echo "## En-têtes de sécurité" >> compliance-report.md
+          echo "\`\`\`" >> compliance-report.md
+          cat security-headers.txt >> compliance-report.md
+          echo "\`\`\`" >> compliance-report.md
+          echo "" >> compliance-report.md
+          echo "## Utilisation du chiffrement" >> compliance-report.md
+          echo "\`\`\`" >> compliance-report.md
+          head -20 encryption-check.txt >> compliance-report.md
+          echo "\`\`\`" >> compliance-report.md
+          
+      - name: 📤 Upload compliance results
+        uses: actions/upload-artifact@v3
+        with:
+          name: compliance-check
+          path: |
+            gdpr-check.txt
+            security-headers.txt
+            encryption-check.txt
+            compliance-report.md
+
+  # Job 7: Rapport de sécurité consolidé
+  security-report:
+    name: 📊 Security Report
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, static-analysis, secret-scan, container-scan, compliance-check]
+    if: always()
+    
+    steps:
+      - name: 📥 Download all artifacts
+        uses: actions/download-artifact@v3
+        
+      - name: 📊 Generate consolidated security report
+        run: |
+          echo "# 🔒 Rapport de sécurité consolidé" > SECURITY_REPORT.md
+          echo "" >> SECURITY_REPORT.md
+          echo "Date: $(date)" >> SECURITY_REPORT.md
+          echo "Commit: ${{ github.sha }}" >> SECURITY_REPORT.md
+          echo "" >> SECURITY_REPORT.md
+          
+          echo "## 📋 Résumé exécutif" >> SECURITY_REPORT.md
+          echo "" >> SECURITY_REPORT.md
+          
+          # Analyser les résultats et générer un résumé
+          CRITICAL_ISSUES=0
+          HIGH_ISSUES=0
+          MEDIUM_ISSUES=0
+          LOW_ISSUES=0
+          
+          echo "- ✅ Analyse des dépendances: ${{ needs.dependency-scan.result }}" >> SECURITY_REPORT.md
+          echo "- ✅ Analyse statique: ${{ needs.static-analysis.result }}" >> SECURITY_REPORT.md
+          echo "- ✅ Recherche de secrets: ${{ needs.secret-scan.result }}" >> SECURITY_REPORT.md
+          echo "- ✅ Analyse des conteneurs: ${{ needs.container-scan.result }}" >> SECURITY_REPORT.md
+          echo "- ✅ Vérification de conformité: ${{ needs.compliance-check.result }}" >> SECURITY_REPORT.md
+          echo "" >> SECURITY_REPORT.md
+          
+          echo "## 📊 Métriques de sécurité" >> SECURITY_REPORT.md
+          echo "" >> SECURITY_REPORT.md
+          echo "| Niveau | Nombre |" >> SECURITY_REPORT.md
+          echo "|--------|--------|" >> SECURITY_REPORT.md
+          echo "| 🔴 Critique | $CRITICAL_ISSUES |" >> SECURITY_REPORT.md
+          echo "| 🟠 Élevé | $HIGH_ISSUES |" >> SECURITY_REPORT.md
+          echo "| 🟡 Moyen | $MEDIUM_ISSUES |" >> SECURITY_REPORT.md
+          echo "| 🟢 Faible | $LOW_ISSUES |" >> SECURITY_REPORT.md
+          echo "" >> SECURITY_REPORT.md
+          
+          echo "## 📁 Détails par catégorie" >> SECURITY_REPORT.md
+          echo "" >> SECURITY_REPORT.md
+          
+          # Inclure les rapports détaillés
+          if [ -d "dependency-audit" ]; then
+            echo "### 🔍 Audit des dépendances" >> SECURITY_REPORT.md
+            cat dependency-audit/dependency-report.md >> SECURITY_REPORT.md
+            echo "" >> SECURITY_REPORT.md
+          fi
+          
+          if [ -d "compliance-check" ]; then
+            echo "### 📋 Conformité" >> SECURITY_REPORT.md
+            cat compliance-check/compliance-report.md >> SECURITY_REPORT.md
+            echo "" >> SECURITY_REPORT.md
+          fi
+          
+          echo "## 🎯 Recommandations" >> SECURITY_REPORT.md
+          echo "" >> SECURITY_REPORT.md
+          echo "1. 🔄 Mettre à jour les dépendances vulnérables" >> SECURITY_REPORT.md
+          echo "2. 🔒 Implémenter les en-têtes de sécurité manquants" >> SECURITY_REPORT.md
+          echo "3. 🔍 Réviser les permissions et accès" >> SECURITY_REPORT.md
+          echo "4. 📝 Documenter les procédures de sécurité" >> SECURITY_REPORT.md
+          echo "5. 🧪 Automatiser les tests de sécurité" >> SECURITY_REPORT.md
+          
+      - name: 📤 Upload consolidated report
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-report
+          path: SECURITY_REPORT.md
+          
+      - name: 📢 Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('SECURITY_REPORT.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🔒 Rapport de sécurité automatique\n\n${report}`
+            });
+
+  # Job 8: Notifications de sécurité
+  security-notifications:
+    name: 📢 Security Notifications
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, static-analysis, secret-scan, container-scan, security-report]
+    if: always() && (needs.dependency-scan.result == 'failure' || needs.static-analysis.result == 'failure' || needs.secret-scan.result == 'failure' || needs.container-scan.result == 'failure')
+    
+    steps:
+      - name: 🚨 Send security alert
+        run: |
+          echo "🚨 ALERTE SÉCURITÉ: Des vulnérabilités ont été détectées!"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref }}"
+          echo "Résultats:"
+          echo "- Dépendances: ${{ needs.dependency-scan.result }}"
+          echo "- Analyse statique: ${{ needs.static-analysis.result }}"
+          echo "- Secrets: ${{ needs.secret-scan.result }}"
+          echo "- Conteneurs: ${{ needs.container-scan.result }}"
+          
+          # Envoyer des notifications (Slack, email, etc.)
+          # curl -X POST -H 'Content-type: application/json' \
+          #   --data '{"text":"🚨 Alerte sécurité Laevitas: Vulnérabilités détectées!"}' \
+          #   ${{ secrets.SLACK_WEBHOOK_URL }}

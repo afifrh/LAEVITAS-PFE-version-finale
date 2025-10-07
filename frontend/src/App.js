@@ -13,7 +13,10 @@ import ProtectedRoute, { AdminRoute, GuestRoute } from './components/ProtectedRo
 // Pages
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
+import TradingPage from './pages/TradingPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import UserManagement from './pages/admin/UserManagement';
@@ -29,7 +32,6 @@ import Watchlist from './components/Watchlist';
 // Composants de layout
 import Layout from './components/layout/Layout';
 import AdminLayout from './components/layout/AdminLayout';
-import RoleBasedRedirect from './components/RoleBasedRedirect';
 
 // Configuration React Query
 const queryClient = new QueryClient({
@@ -98,6 +100,18 @@ function App() {
                 </GuestRoute>
               } />
 
+              <Route path="/forgot-password" element={
+                <GuestRoute>
+                  <ForgotPasswordPage />
+                </GuestRoute>
+              } />
+
+              <Route path="/reset-password" element={
+                <GuestRoute>
+                  <ResetPasswordPage />
+                </GuestRoute>
+              } />
+
               {/* Routes protégées - Client */}
               <Route path="/dashboard" element={
                 <ProtectedRoute>
@@ -139,6 +153,14 @@ function App() {
                 </ProtectedRoute>
               } />
 
+              <Route path="/trading" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <TradingPage />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+
               {/* Routes protégées - Admin */}
               <Route path="/admin/*" element={
                 <AdminRoute>
@@ -155,11 +177,11 @@ function App() {
 
               
 
-              {/* Redirection par défaut basée sur le rôle */}
-              <Route path="/" element={<RoleBasedRedirect />} />
+              {/* Redirection par défaut vers la page de login */}
+              <Route path="/" element={<Navigate to="/login" replace />} />
 
-              {/* Route catch-all - redirige vers la racine */}
-              <Route path="*" element={<Navigate to="/" replace />} />
+              {/* Route catch-all - redirige vers la page de login */}
+              <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
 
             {/* Toast notifications */}

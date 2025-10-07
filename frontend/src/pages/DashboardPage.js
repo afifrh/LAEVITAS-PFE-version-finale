@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import TradingDashboard from '../components/TradingDashboard';
 import Portfolio from '../components/Portfolio';
 import LoadingSpinner, { SkeletonLoader, CardSpinner } from '../components/LoadingSpinner';
+import WebSocketStatus from '../components/WebSocketStatus';
+import portfolioSyncService from '../services/portfolioSyncService';
 import {
   CurrencyDollarIcon,
   ArrowTrendingUpIcon,
@@ -34,6 +36,8 @@ const DashboardPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [marketData, setMarketData] = useState(null);
   const [portfolioData, setPortfolioData] = useState(null);
+  const [walletData, setWalletData] = useState(null);
+  const [dashboardMetrics, setDashboardMetrics] = useState(null);
   const [notifications, setNotifications] = useState([]);
 
   // Configuration des onglets
@@ -61,13 +65,21 @@ const DashboardPage = () => {
     }
   ];
 
-  // Simulation de données de marché
+  // Chargement des données synchronisées
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Simulation d'un appel API
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        setIsLoading(true);
         
+        // Synchroniser toutes les données
+        const syncedData = await portfolioSyncService.syncAllData();
+        
+        // Mettre à jour les états avec les données synchronisées
+        setWalletData(syncedData.wallet);
+        setPortfolioData(syncedData.portfolio);
+        setDashboardMetrics(syncedData.dashboard);
+        
+        // Données de marché simulées (à remplacer par de vraies données)
         setMarketData({
           btc: { price: 43250.50, change: 2.45, changePercent: 5.67 },
           eth: { price: 2580.75, change: -45.20, changePercent: -1.72 },
@@ -75,17 +87,7 @@ const DashboardPage = () => {
           ada: { price: 0.485, change: 0.012, changePercent: 2.53 }
         });
 
-        setPortfolioData({
-          totalValue: 12450.75,
-          totalChange: 245.80,
-          totalChangePercent: 2.01,
-          assets: [
-            { symbol: 'BTC', amount: 0.25, value: 10812.63, allocation: 86.8 },
-            { symbol: 'ETH', amount: 0.5, value: 1290.38, allocation: 10.4 },
-            { symbol: 'BNB', amount: 1.1, value: 347.38, allocation: 2.8 }
-          ]
-        });
-
+        // Notifications simulées
         setNotifications([
           {
             id: 1,
@@ -105,11 +107,11 @@ const DashboardPage = () => {
           },
           {
             id: 3,
-            type: 'system',
-            title: 'Maintenance programmée',
-            message: 'Maintenance du système prévue demain à 2h00',
-            time: '3h',
-            read: true
+            type: 'wallet_update',
+            title: 'Portefeuille mis à jour',
+            message: `Valeur totale: $${syncedData.dashboard?.totalBalance?.toFixed(2) || '0.00'}`,
+            time: 'maintenant',
+            read: false
           }
         ]);
 
@@ -121,6 +123,21 @@ const DashboardPage = () => {
     };
 
     fetchDashboardData();
+
+    // Écouter les mises à jour du service de synchronisation
+    const unsubscribe = portfolioSyncService.addListener((update) => {
+      console.log('Mise à jour reçue:', update);
+      
+      if (update.type === 'full_sync' || update.type === 'portfolio_updated') {
+        if (update.data.wallet) setWalletData(update.data.wallet);
+        if (update.data.portfolio) setPortfolioData(update.data.portfolio);
+        if (update.data.dashboard) setDashboardMetrics(update.data.dashboard);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // Composant de carte de statistique
@@ -174,7 +191,7 @@ const DashboardPage = () => {
             </div>
           </div>
           <div className="text-right">
-            <p className="text-white font-bold">${price.toLocaleString()}</p>
+            <p className="text-white font-bold">${price?.toLocaleString() || '0'}</p>
             <div className={`flex items-center text-sm ${
               isPositive ? 'text-green-400' : 'text-red-400'
             }`}>
@@ -259,6 +276,7 @@ const DashboardPage = () => {
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex items-center space-x-3">
+          <WebSocketStatus />
           <button className="btn-secondary">
             <Cog6ToothIcon className="h-5 w-5 mr-2" />
             Paramètres
@@ -304,30 +322,33 @@ const DashboardPage = () => {
           {/* Cartes de statistiques */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard
-              title="Valeur du portefeuille"
-              value={`$${portfolioData?.totalValue.toLocaleString()}`}
-              change={`+$${portfolioData?.totalChange.toFixed(2)}`}
-              changePercent={portfolioData?.totalChangePercent.toFixed(2)}
+              title="Valeur totale"
+              value={`$${dashboardMetrics?.totalBalance?.toFixed(2) || '0.00'}`}
+              change={dashboardMetrics?.totalChange > 0 ? `+$${dashboardMetrics?.totalChange?.toFixed(2)}` : `-$${Math.abs(dashboardMetrics?.totalChange || 0).toFixed(2)}`}
+              changePercent={dashboardMetrics?.totalChangePercent?.toFixed(2) || '0.00'}
               icon={CurrencyDollarSolidIcon}
-              trend="up"
+              trend={dashboardMetrics?.totalChange >= 0 ? "up" : "down"}
             />
             <StatCard
-              title="Gain/Perte 24h"
-              value={`+$${portfolioData?.totalChange.toFixed(2)}`}
-              change={`${portfolioData?.totalChangePercent.toFixed(2)}%`}
-              changePercent=""
+              title="Solde Wallet"
+              value={`$${walletData?.totalValue?.toFixed(2) || '0.00'}`}
+              change={walletData?.dailyChange > 0 ? `+$${walletData?.dailyChange?.toFixed(2)}` : walletData?.dailyChange < 0 ? `-$${Math.abs(walletData?.dailyChange || 0).toFixed(2)}` : null}
+              changePercent={walletData?.dailyChangePercent?.toFixed(2) || null}
               icon={ArrowTrendingUpIcon}
-              trend="up"
+              trend={walletData?.dailyChange >= 0 ? "up" : "down"}
             />
             <StatCard
-              title="Nombre d'actifs"
-              value={portfolioData?.assets.length.toString()}
+              title="Portfolio"
+              value={`$${portfolioData?.totalValue?.toFixed(2) || '0.00'}`}
+              change={portfolioData?.totalChange > 0 ? `+$${portfolioData?.totalChange?.toFixed(2)}` : portfolioData?.totalChange < 0 ? `-$${Math.abs(portfolioData?.totalChange || 0).toFixed(2)}` : null}
+              changePercent={portfolioData?.totalChangePercent?.toFixed(2) || null}
               icon={ChartBarSolidIcon}
+              trend={portfolioData?.totalChange >= 0 ? "up" : "down"}
             />
             <StatCard
-              title="Dernière mise à jour"
-              value="Maintenant"
-              icon={ClockIcon}
+              title="Actifs actifs"
+              value={`${dashboardMetrics?.activeAssets || 0}`}
+              icon={BriefcaseSolidIcon}
             />
           </div>
 
@@ -357,7 +378,7 @@ const DashboardPage = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-white font-bold">${asset.value.toLocaleString()}</p>
+                        <p className="text-white font-bold">${asset.value?.toLocaleString() || '0'}</p>
                         <p className="text-gray-400 text-sm">{asset.allocation}%</p>
                       </div>
                     </div>
@@ -472,7 +493,15 @@ const DashboardPage = () => {
       ) : activeTab === 'portfolio' ? (
         /* Composant Portfolio */
         <div className="mt-6">
-          <Portfolio />
+          <Portfolio 
+            portfolioData={portfolioData}
+            walletData={walletData}
+            onDataUpdate={(updatedData) => {
+              if (updatedData.portfolio) setPortfolioData(updatedData.portfolio);
+              if (updatedData.wallet) setWalletData(updatedData.wallet);
+              if (updatedData.dashboard) setDashboardMetrics(updatedData.dashboard);
+            }}
+          />
         </div>
       ) : (
         /* Dashboard de Trading */

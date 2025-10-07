@@ -142,18 +142,23 @@ router.post('/deposit', authenticate, walletRateLimit, validateAmount, validateC
     
     await wallet.save();
     
+    // Récupérer l'ID de la transaction après sauvegarde
+    const savedTransaction = wallet.transactions[wallet.transactions.length - 1];
+    
     // Simuler le traitement du dépôt (en production, intégrer avec les APIs de paiement)
+    console.log(`⏰ Programmation du traitement du dépôt dans 5 secondes - Wallet: ${wallet._id}, Transaction: ${savedTransaction._id}`);
     setTimeout(async () => {
-      await processDeposit(wallet._id, transaction._id);
+      console.log(`🚀 Exécution du traitement du dépôt programmé`);
+      await processDeposit(wallet._id, savedTransaction._id);
     }, 5000);
     
     res.json({
       success: true,
       message: 'Dépôt initié avec succès',
       data: {
-        transactionId: transaction._id,
-        externalReference: transaction.externalReference,
-        status: transaction.status,
+        transactionId: savedTransaction._id,
+        externalReference: savedTransaction.externalReference,
+        status: savedTransaction.status,
         estimatedProcessingTime: '5-10 minutes'
       }
     });
@@ -410,27 +415,61 @@ function calculateTotalValue(balances) {
 
 async function processDeposit(walletId, transactionId) {
   try {
+    console.log(`🔄 Début du traitement du dépôt - Wallet ID: ${walletId}, Transaction ID: ${transactionId}`);
+    
     const wallet = await Wallet.findById(walletId);
+    if (!wallet) {
+      console.error(`❌ Portefeuille non trouvé: ${walletId}`);
+      return;
+    }
+    
+    console.log(`✅ Portefeuille trouvé: ${wallet._id}`);
+    console.log(`📊 Nombre de transactions: ${wallet.transactions.length}`);
+    
     const transaction = wallet.transactions.id(transactionId);
+    if (!transaction) {
+      console.error(`❌ Transaction non trouvée: ${transactionId}`);
+      console.log(`📋 Transactions disponibles:`, wallet.transactions.map(t => ({ id: t._id, status: t.status, amount: t.amount, currency: t.currency })));
+      return;
+    }
+    
+    console.log(`✅ Transaction trouvée:`, {
+      id: transaction._id,
+      status: transaction.status,
+      amount: transaction.amount,
+      currency: transaction.currency,
+      type: transaction.type
+    });
     
     if (transaction && transaction.status === 'pending') {
+      console.log(`💰 Solde avant traitement:`, wallet.getBalance(transaction.currency));
+      
       // Simuler la confirmation du dépôt
       transaction.status = 'completed';
       transaction.processedAt = new Date();
       
       // Ajouter les fonds au solde
+      const currentBalance = wallet.getBalance(transaction.currency);
+      const newAvailable = currentBalance.available + transaction.amount;
+      
+      console.log(`🔄 Mise à jour du solde: ${currentBalance.available} + ${transaction.amount} = ${newAvailable}`);
+      
       wallet.updateBalance(
         transaction.currency,
-        wallet.getBalance(transaction.currency).available + transaction.amount,
-        wallet.getBalance(transaction.currency).locked
+        newAvailable,
+        currentBalance.locked
       );
+      
+      console.log(`💰 Solde après mise à jour:`, wallet.getBalance(transaction.currency));
       
       await wallet.save();
       
-      console.log(`Dépôt traité: ${transaction.amount} ${transaction.currency}`);
+      console.log(`✅ Dépôt traité avec succès: ${transaction.amount} ${transaction.currency}`);
+    } else {
+      console.log(`⚠️ Transaction non éligible pour traitement - Status: ${transaction?.status}`);
     }
   } catch (error) {
-    console.error('Erreur lors du traitement du dépôt:', error);
+    console.error('❌ Erreur lors du traitement du dépôt:', error);
   }
 }
 

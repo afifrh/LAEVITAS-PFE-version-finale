@@ -1,0 +1,510 @@
+name: Performance - Tests et Monitoring
+
+on:
+  schedule:
+    # Exécuter tous les jours à 3h du matin
+    - cron: '0 3 * * *'
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      test_duration:
+        description: 'Durée des tests (en minutes)'
+        required: false
+        default: '5'
+        type: string
+      concurrent_users:
+        description: 'Nombre d\'utilisateurs simultanés'
+        required: false
+        default: '50'
+        type: string
+
+env:
+  NODE_VERSION: '18'
+  TEST_DURATION: ${{ github.event.inputs.test_duration || '5' }}
+  CONCURRENT_USERS: ${{ github.event.inputs.concurrent_users || '50' }}
+
+jobs:
+  # Job 1: Tests de charge avec K6
+  load-testing:
+    name: 🚀 Load Testing
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🚀 Start application
+        run: |
+          docker-compose up -d
+          echo "Waiting for services to be ready..."
+          timeout 120 bash -c 'until curl -f http://localhost:3000/health; do sleep 2; done'
+          timeout 120 bash -c 'until curl -f http://localhost:80; do sleep 2; done'
+          
+      - name: 🧪 Install K6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+          
+      - name: 📝 Create K6 test script
+        run: |
+          cat > load-test.js << 'EOF'
+          import http from 'k6/http';
+          import { check, sleep } from 'k6';
+          import { Rate } from 'k6/metrics';
+          
+          export let errorRate = new Rate('errors');
+          
+          export let options = {
+            stages: [
+              { duration: '2m', target: 20 }, // Montée progressive
+              { duration: '${TEST_DURATION}m', target: ${CONCURRENT_USERS} }, // Charge stable
+              { duration: '2m', target: 0 }, // Descente
+            ],
+            thresholds: {
+              http_req_duration: ['p(95)<500'], // 95% des requêtes < 500ms
+              http_req_failed: ['rate<0.1'], // Taux d'erreur < 10%
+              errors: ['rate<0.1'],
+            },
+          };
+          
+          const BASE_URL = 'http://localhost:3000';
+          
+          export default function() {
+            // Test de l'API de santé
+            let healthResponse = http.get(`${BASE_URL}/health`);
+            check(healthResponse, {
+              'health check status is 200': (r) => r.status === 200,
+            }) || errorRate.add(1);
+            
+            // Test de l'API des marchés
+            let marketsResponse = http.get(`${BASE_URL}/api/markets`);
+            check(marketsResponse, {
+              'markets API status is 200': (r) => r.status === 200,
+              'markets API response time < 500ms': (r) => r.timings.duration < 500,
+            }) || errorRate.add(1);
+            
+            // Test de l'API des prix
+            let pricesResponse = http.get(`${BASE_URL}/api/prices/BTCUSDT`);
+            check(pricesResponse, {
+              'prices API status is 200': (r) => r.status === 200,
+              'prices API response time < 300ms': (r) => r.timings.duration < 300,
+            }) || errorRate.add(1);
+            
+            // Test du frontend
+            let frontendResponse = http.get('http://localhost:80');
+            check(frontendResponse, {
+              'frontend status is 200': (r) => r.status === 200,
+            }) || errorRate.add(1);
+            
+            sleep(1);
+          }
+          EOF
+          
+      - name: 🚀 Run K6 load test
+        run: |
+          k6 run --out json=load-test-results.json load-test.js
+          
+      - name: 📊 Process K6 results
+        run: |
+          # Extraire les métriques importantes
+          echo "# 📊 Résultats des tests de charge" > performance-report.md
+          echo "" >> performance-report.md
+          echo "## Configuration" >> performance-report.md
+          echo "- Durée: ${TEST_DURATION} minutes" >> performance-report.md
+          echo "- Utilisateurs simultanés: ${CONCURRENT_USERS}" >> performance-report.md
+          echo "- Date: $(date)" >> performance-report.md
+          echo "" >> performance-report.md
+          
+          # Analyser les résultats JSON
+          if [ -f load-test-results.json ]; then
+            echo "## Métriques principales" >> performance-report.md
+            echo "\`\`\`" >> performance-report.md
+            tail -1 load-test-results.json | jq '.metrics' >> performance-report.md
+            echo "\`\`\`" >> performance-report.md
+          fi
+          
+      - name: 🛑 Stop application
+        if: always()
+        run: |
+          docker-compose down -v
+          
+      - name: 📤 Upload K6 results
+        uses: actions/upload-artifact@v3
+        with:
+          name: load-test-results
+          path: |
+            load-test-results.json
+            performance-report.md
+
+  # Job 2: Tests de performance frontend avec Lighthouse
+  lighthouse-audit:
+    name: 🔍 Lighthouse Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: 🚀 Start application
+        run: |
+          docker-compose up -d
+          echo "Waiting for frontend to be ready..."
+          timeout 120 bash -c 'until curl -f http://localhost:80; do sleep 2; done'
+          
+      - name: 🔍 Run Lighthouse CI
+        run: |
+          npm install -g @lhci/cli@0.12.x
+          
+          # Configuration Lighthouse CI
+          cat > lighthouserc.js << 'EOF'
+          module.exports = {
+            ci: {
+              collect: {
+                url: ['http://localhost:80'],
+                numberOfRuns: 3,
+                settings: {
+                  chromeFlags: '--no-sandbox --headless',
+                },
+              },
+              assert: {
+                assertions: {
+                  'categories:performance': ['error', {minScore: 0.8}],
+                  'categories:accessibility': ['error', {minScore: 0.9}],
+                  'categories:best-practices': ['error', {minScore: 0.8}],
+                  'categories:seo': ['error', {minScore: 0.8}],
+                  'categories:pwa': ['warn', {minScore: 0.6}],
+                },
+              },
+              upload: {
+                target: 'filesystem',
+                outputDir: './lighthouse-results',
+              },
+            },
+          };
+          EOF
+          
+          lhci autorun
+          
+      - name: 📊 Process Lighthouse results
+        run: |
+          echo "# 🔍 Rapport Lighthouse" > lighthouse-report.md
+          echo "" >> lighthouse-report.md
+          echo "## Scores" >> lighthouse-report.md
+          
+          # Extraire les scores des résultats
+          if [ -d "./lighthouse-results" ]; then
+            for file in ./lighthouse-results/*.json; do
+              if [ -f "$file" ]; then
+                echo "### $(basename $file)" >> lighthouse-report.md
+                echo "\`\`\`json" >> lighthouse-report.md
+                jq '.categories | to_entries | map({key: .key, score: (.value.score * 100 | round)})' "$file" >> lighthouse-report.md
+                echo "\`\`\`" >> lighthouse-report.md
+                echo "" >> lighthouse-report.md
+              fi
+            done
+          fi
+          
+      - name: 🛑 Stop application
+        if: always()
+        run: |
+          docker-compose down -v
+          
+      - name: 📤 Upload Lighthouse results
+        uses: actions/upload-artifact@v3
+        with:
+          name: lighthouse-results
+          path: |
+            lighthouse-results/
+            lighthouse-report.md
+
+  # Job 3: Tests de performance API avec Artillery
+  api-performance:
+    name: 🎯 API Performance
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: 🚀 Start application
+        run: |
+          docker-compose up -d
+          echo "Waiting for API to be ready..."
+          timeout 120 bash -c 'until curl -f http://localhost:3000/health; do sleep 2; done'
+          
+      - name: 📦 Install Artillery
+        run: |
+          npm install -g artillery@latest
+          
+      - name: 📝 Create Artillery test config
+        run: |
+          cat > artillery-config.yml << 'EOF'
+          config:
+            target: 'http://localhost:3000'
+            phases:
+              - duration: 60
+                arrivalRate: 10
+                name: "Warm up"
+              - duration: 300
+                arrivalRate: 50
+                name: "Sustained load"
+              - duration: 60
+                arrivalRate: 100
+                name: "Peak load"
+            defaults:
+              headers:
+                Content-Type: 'application/json'
+          scenarios:
+            - name: "API Health Check"
+              weight: 20
+              flow:
+                - get:
+                    url: "/health"
+                    expect:
+                      - statusCode: 200
+                      
+            - name: "Markets API"
+              weight: 30
+              flow:
+                - get:
+                    url: "/api/markets"
+                    expect:
+                      - statusCode: 200
+                      - hasProperty: "data"
+                      
+            - name: "Price API"
+              weight: 25
+              flow:
+                - get:
+                    url: "/api/prices/BTCUSDT"
+                    expect:
+                      - statusCode: 200
+                      
+            - name: "Trading Pairs"
+              weight: 25
+              flow:
+                - get:
+                    url: "/api/trading-pairs"
+                    expect:
+                      - statusCode: 200
+          EOF
+          
+      - name: 🎯 Run Artillery test
+        run: |
+          artillery run artillery-config.yml --output artillery-results.json
+          
+      - name: 📊 Generate Artillery report
+        run: |
+          artillery report artillery-results.json --output artillery-report.html
+          
+          # Créer un rapport markdown
+          echo "# 🎯 Rapport de performance API" > api-performance-report.md
+          echo "" >> api-performance-report.md
+          echo "## Configuration" >> api-performance-report.md
+          echo "- Durée totale: 7 minutes" >> api-performance-report.md
+          echo "- Phases: Warm-up (10 req/s), Charge soutenue (50 req/s), Pic (100 req/s)" >> api-performance-report.md
+          echo "- Date: $(date)" >> api-performance-report.md
+          echo "" >> api-performance-report.md
+          
+          # Extraire les métriques du JSON
+          if [ -f artillery-results.json ]; then
+            echo "## Résultats" >> api-performance-report.md
+            echo "\`\`\`json" >> api-performance-report.md
+            jq '.aggregate' artillery-results.json >> api-performance-report.md
+            echo "\`\`\`" >> api-performance-report.md
+          fi
+          
+      - name: 🛑 Stop application
+        if: always()
+        run: |
+          docker-compose down -v
+          
+      - name: 📤 Upload Artillery results
+        uses: actions/upload-artifact@v3
+        with:
+          name: api-performance-results
+          path: |
+            artillery-results.json
+            artillery-report.html
+            api-performance-report.md
+
+  # Job 4: Monitoring des métriques système
+  system-metrics:
+    name: 📊 System Metrics
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🚀 Start application with monitoring
+        run: |
+          # Démarrer avec monitoring des ressources
+          docker-compose up -d
+          
+          # Attendre que les services soient prêts
+          timeout 120 bash -c 'until curl -f http://localhost:3000/health; do sleep 2; done'
+          
+      - name: 📊 Collect system metrics
+        run: |
+          echo "# 📊 Métriques système" > system-metrics.md
+          echo "" >> system-metrics.md
+          echo "## Utilisation des ressources" >> system-metrics.md
+          echo "" >> system-metrics.md
+          
+          # Collecter les métriques pendant 5 minutes
+          for i in {1..10}; do
+            echo "### Mesure $i ($(date))" >> system-metrics.md
+            echo "" >> system-metrics.md
+            
+            # CPU et mémoire
+            echo "#### CPU et Mémoire" >> system-metrics.md
+            echo "\`\`\`" >> system-metrics.md
+            top -bn1 | head -5 >> system-metrics.md
+            echo "\`\`\`" >> system-metrics.md
+            echo "" >> system-metrics.md
+            
+            # Utilisation Docker
+            echo "#### Conteneurs Docker" >> system-metrics.md
+            echo "\`\`\`" >> system-metrics.md
+            docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}\t{{.BlockIO}}" >> system-metrics.md
+            echo "\`\`\`" >> system-metrics.md
+            echo "" >> system-metrics.md
+            
+            # Espace disque
+            echo "#### Espace disque" >> system-metrics.md
+            echo "\`\`\`" >> system-metrics.md
+            df -h >> system-metrics.md
+            echo "\`\`\`" >> system-metrics.md
+            echo "" >> system-metrics.md
+            
+            sleep 30
+          done
+          
+      - name: 🛑 Stop application
+        if: always()
+        run: |
+          docker-compose down -v
+          
+      - name: 📤 Upload system metrics
+        uses: actions/upload-artifact@v3
+        with:
+          name: system-metrics
+          path: system-metrics.md
+
+  # Job 5: Rapport consolidé de performance
+  performance-report:
+    name: 📋 Performance Report
+    runs-on: ubuntu-latest
+    needs: [load-testing, lighthouse-audit, api-performance, system-metrics]
+    if: always()
+    
+    steps:
+      - name: 📥 Download all artifacts
+        uses: actions/download-artifact@v3
+        
+      - name: 📋 Generate consolidated report
+        run: |
+          echo "# 🚀 Rapport de performance consolidé" > PERFORMANCE_REPORT.md
+          echo "" >> PERFORMANCE_REPORT.md
+          echo "Date: $(date)" >> PERFORMANCE_REPORT.md
+          echo "Commit: ${{ github.sha }}" >> PERFORMANCE_REPORT.md
+          echo "Configuration: ${CONCURRENT_USERS} utilisateurs, ${TEST_DURATION} minutes" >> PERFORMANCE_REPORT.md
+          echo "" >> PERFORMANCE_REPORT.md
+          
+          echo "## 📊 Résumé exécutif" >> PERFORMANCE_REPORT.md
+          echo "" >> PERFORMANCE_REPORT.md
+          echo "| Test | Statut | Détails |" >> PERFORMANCE_REPORT.md
+          echo "|------|--------|---------|" >> PERFORMANCE_REPORT.md
+          echo "| 🚀 Tests de charge | ${{ needs.load-testing.result }} | K6 Load Testing |" >> PERFORMANCE_REPORT.md
+          echo "| 🔍 Audit Lighthouse | ${{ needs.lighthouse-audit.result }} | Performance Frontend |" >> PERFORMANCE_REPORT.md
+          echo "| 🎯 Performance API | ${{ needs.api-performance.result }} | Artillery Testing |" >> PERFORMANCE_REPORT.md
+          echo "| 📊 Métriques système | ${{ needs.system-metrics.result }} | Monitoring ressources |" >> PERFORMANCE_REPORT.md
+          echo "" >> PERFORMANCE_REPORT.md
+          
+          # Inclure les rapports détaillés
+          if [ -d "load-test-results" ] && [ -f "load-test-results/performance-report.md" ]; then
+            echo "## 🚀 Tests de charge (K6)" >> PERFORMANCE_REPORT.md
+            cat load-test-results/performance-report.md >> PERFORMANCE_REPORT.md
+            echo "" >> PERFORMANCE_REPORT.md
+          fi
+          
+          if [ -d "lighthouse-results" ] && [ -f "lighthouse-results/lighthouse-report.md" ]; then
+            echo "## 🔍 Audit Lighthouse" >> PERFORMANCE_REPORT.md
+            cat lighthouse-results/lighthouse-report.md >> PERFORMANCE_REPORT.md
+            echo "" >> PERFORMANCE_REPORT.md
+          fi
+          
+          if [ -d "api-performance-results" ] && [ -f "api-performance-results/api-performance-report.md" ]; then
+            echo "## 🎯 Performance API" >> PERFORMANCE_REPORT.md
+            cat api-performance-results/api-performance-report.md >> PERFORMANCE_REPORT.md
+            echo "" >> PERFORMANCE_REPORT.md
+          fi
+          
+          echo "## 🎯 Recommandations" >> PERFORMANCE_REPORT.md
+          echo "" >> PERFORMANCE_REPORT.md
+          echo "1. 🔧 Optimiser les requêtes lentes (> 500ms)" >> PERFORMANCE_REPORT.md
+          echo "2. 📦 Implémenter la mise en cache pour les données fréquemment accédées" >> PERFORMANCE_REPORT.md
+          echo "3. 🗜️ Compresser les assets statiques" >> PERFORMANCE_REPORT.md
+          echo "4. 📊 Surveiller l'utilisation mémoire des conteneurs" >> PERFORMANCE_REPORT.md
+          echo "5. ⚡ Considérer l'utilisation d'un CDN" >> PERFORMANCE_REPORT.md
+          
+      - name: 📤 Upload consolidated report
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-report
+          path: PERFORMANCE_REPORT.md
+          
+      - name: 📢 Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('PERFORMANCE_REPORT.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 Rapport de performance automatique\n\n${report}`
+            });
+
+  # Job 6: Alertes de performance
+  performance-alerts:
+    name: 🚨 Performance Alerts
+    runs-on: ubuntu-latest
+    needs: [load-testing, lighthouse-audit, api-performance]
+    if: always() && (needs.load-testing.result == 'failure' || needs.lighthouse-audit.result == 'failure' || needs.api-performance.result == 'failure')
+    
+    steps:
+      - name: 🚨 Send performance alert
+        run: |
+          echo "🚨 ALERTE PERFORMANCE: Dégradation détectée!"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref }}"
+          echo "Résultats:"
+          echo "- Tests de charge: ${{ needs.load-testing.result }}"
+          echo "- Lighthouse: ${{ needs.lighthouse-audit.result }}"
+          echo "- Performance API: ${{ needs.api-performance.result }}"
+          
+          # Envoyer des notifications (Slack, email, etc.)
+          # curl -X POST -H 'Content-type: application/json' \
+          #   --data '{"text":"🚨 Alerte performance Laevitas: Dégradation détectée!"}' \
+          #   ${{ secrets.SLACK_WEBHOOK_URL }}

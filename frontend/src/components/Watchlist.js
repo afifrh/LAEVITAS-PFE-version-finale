@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   StarIcon,
   PlusIcon,
@@ -13,9 +13,13 @@ import {
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid, BellIcon as BellIconSolid } from '@heroicons/react/24/solid';
 import marketService from '../services/marketService';
+import { useNavigate } from 'react-router-dom';
 import './Watchlist.css';
+import PriceChart from './charts/PriceChart';
+import CandlestickChart from './charts/CandlestickChart';
 
-const Watchlist = () => {
+  const Watchlist = () => {
+  const navigate = useNavigate();
   const [watchlists, setWatchlists] = useState([]);
   const [selectedWatchlist, setSelectedWatchlist] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -23,26 +27,103 @@ const Watchlist = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
+  const [showChartModal, setShowChartModal] = useState(false);
+  const [chartType, setChartType] = useState('price');
+  const [chartSymbol, setChartSymbol] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [availableMarkets, setAvailableMarkets] = useState([]);
   const [newWatchlist, setNewWatchlist] = useState({ name: '', description: '', isDefault: false });
   const [editingWatchlist, setEditingWatchlist] = useState(null);
+  const [wsConnected, setWsConnected] = useState(false);
+  const unsubscribeRefs = useRef([]);
 
   useEffect(() => {
     loadWatchlists();
     loadAvailableMarkets();
   }, []);
 
+  // Connexion WebSocket au montage
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        await marketService.connectWebSocket();
+        if (isMounted) setWsConnected(true);
+        // Si une watchlist est déjà sélectionnée, réabonner
+      } catch (err) {
+        console.error('Erreur de connexion WebSocket dans Watchlist:', err);
+        if (isMounted) setWsConnected(false);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Abonnement aux symboles de la watchlist sélectionnée
+  useEffect(() => {
+    // Nettoyer les abonnements précédents
+    if (unsubscribeRefs.current.length > 0) {
+      try {
+        unsubscribeRefs.current.forEach((unsub) => {
+          try { unsub(); } catch (_) {}
+        });
+      } finally {
+        unsubscribeRefs.current = [];
+      }
+    }
+
+    if (!wsConnected || !selectedWatchlist || !Array.isArray(selectedWatchlist.items) || selectedWatchlist.items.length === 0) {
+      return;
+    }
+
+    // S'abonner à chaque symbole de la watchlist
+    const newUnsubs = selectedWatchlist.items.map((item) => {
+      const symbol = item.symbol;
+      const unsubscribe = marketService.subscribe(symbol, (data) => {
+        // Mettre à jour l'élément correspondant avec les données temps réel
+        setSelectedWatchlist((prev) => {
+          if (!prev) return prev;
+          const updatedItems = (prev.items || []).map((it) =>
+            it.symbol === symbol ? { ...it, marketData: data } : it
+          );
+          return { ...prev, items: updatedItems };
+        });
+      });
+      return unsubscribe;
+    });
+
+    unsubscribeRefs.current = newUnsubs;
+
+    // Nettoyage si la watchlist change ou au démontage
+    return () => {
+      if (unsubscribeRefs.current.length > 0) {
+        unsubscribeRefs.current.forEach((unsub) => {
+          try { unsub(); } catch (_) {}
+        });
+        unsubscribeRefs.current = [];
+      }
+    };
+  }, [wsConnected, selectedWatchlist]);
+
   const loadWatchlists = async () => {
     try {
       setLoading(true);
       const response = await marketService.getWatchlists();
       setWatchlists(response.data);
-      
-      // Sélectionner la première watchlist par défaut
-      if (response.data.length > 0 && !selectedWatchlist) {
-        const defaultWatchlist = response.data.find(w => w.isDefault) || response.data[0];
-        setSelectedWatchlist(defaultWatchlist);
+
+      // Mettre à jour la sélection pour éviter les données obsolètes
+      if (response.data.length > 0) {
+        if (selectedWatchlist?._id) {
+          const updatedSelected = response.data.find(w => w._id === selectedWatchlist._id);
+          if (updatedSelected) {
+            setSelectedWatchlist(updatedSelected);
+          } else if (!selectedWatchlist) {
+            const defaultWatchlist = response.data.find(w => w.isDefault) || response.data[0];
+            setSelectedWatchlist(defaultWatchlist);
+          }
+        } else if (!selectedWatchlist) {
+          const defaultWatchlist = response.data.find(w => w.isDefault) || response.data[0];
+          setSelectedWatchlist(defaultWatchlist);
+        }
       }
     } catch (err) {
       setError('Erreur lors du chargement des watchlists');
@@ -145,19 +226,21 @@ const Watchlist = () => {
     if (!selectedWatchlist) return;
 
     try {
-      const item = selectedWatchlist.items.find(item => item.symbol === symbol);
+      const item = selectedWatchlist.items.find(i => i.symbol === symbol);
+      const currentPrice = item?.marketData?.lastPrice || 0;
+
       if (item?.alertEnabled) {
-        await marketService.removeAlert(selectedWatchlist._id, symbol);
+        // Désactiver toutes les alertes (ou supprimer)
+        await marketService.toggleAlert(selectedWatchlist._id, symbol, false);
       } else {
-        // Pour simplifier, on crée une alerte basique
-        await marketService.addAlert(selectedWatchlist._id, {
-          symbol,
-          type: 'price',
-          condition: 'above',
-          value: item?.marketData?.lastPrice * 1.05 || 100, // 5% au-dessus du prix actuel
-          message: `${symbol} a dépassé le seuil`
+        // Créer une alerte simple au-dessus de 5%
+        const threshold = currentPrice ? currentPrice * 1.05 : 100;
+        await marketService.addAlert(selectedWatchlist._id, symbol, {
+          type: 'price_above',
+          value: Number(threshold.toFixed(2))
         });
       }
+
       await loadWatchlists();
     } catch (err) {
       console.error('Erreur lors de la gestion de l\'alerte:', err);
@@ -209,6 +292,7 @@ const Watchlist = () => {
           <button 
             className="action-btn view-btn"
             title="Voir les détails"
+            onClick={() => { setChartSymbol(symbol); setShowChartModal(true); }}
           >
             <EyeIcon className="w-4 h-4" />
           </button>
@@ -216,6 +300,7 @@ const Watchlist = () => {
           <button 
             className="action-btn trade-btn"
             title="Trader"
+            onClick={() => navigate(`/trading?symbol=${encodeURIComponent(symbol)}`)}
           >
             <ChartBarIcon className="w-4 h-4" />
           </button>
@@ -559,6 +644,37 @@ const Watchlist = () => {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de graphique */}
+      {showChartModal && chartSymbol && (
+        <div className="modal-overlay" onClick={() => setShowChartModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>📈 {chartSymbol} - Graphique</h3>
+              <button className="close-btn" onClick={() => setShowChartModal(false)}>×</button>
+            </div>
+            <div className="modal-content">
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <button
+                  className={`chart-type-btn ${chartType === 'price' ? 'active' : ''}`}
+                  onClick={() => setChartType('price')}
+                >Prix</button>
+                <button
+                  className={`chart-type-btn ${chartType === 'candlestick' ? 'active' : ''}`}
+                  onClick={() => setChartType('candlestick')}
+                >Chandeliers</button>
+              </div>
+              <div className="chart-container">
+                {chartType === 'price' ? (
+                  <PriceChart symbol={chartSymbol} />
+                ) : (
+                  <CandlestickChart symbol={chartSymbol} />
+                )}
               </div>
             </div>
           </div>

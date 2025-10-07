@@ -1,0 +1,106 @@
+# Configuration GitLeaks pour Laevitas Trading Platform
+
+title = "Laevitas GitLeaks Configuration"
+
+[extend]
+# Utiliser les règles par défaut de GitLeaks
+useDefault = true
+
+[[rules]]
+description = "Binance API Key"
+id = "binance-api-key"
+regex = '''(?i)binance[_-]?api[_-]?key[_-]?[:=]\s*['"]*([a-zA-Z0-9]{64})['"]*'''
+tags = ["key", "binance", "api"]
+
+[[rules]]
+description = "Binance Secret Key"
+id = "binance-secret-key"
+regex = '''(?i)binance[_-]?secret[_-]?key[_-]?[:=]\s*['"]*([a-zA-Z0-9]{64})['"]*'''
+tags = ["secret", "binance", "api"]
+
+[[rules]]
+description = "JWT Secret"
+id = "jwt-secret"
+regex = '''(?i)jwt[_-]?secret[_-]?[:=]\s*['"]*([a-zA-Z0-9+/]{32,})['"]*'''
+tags = ["secret", "jwt"]
+
+[[rules]]
+description = "MongoDB Connection String"
+id = "mongodb-uri"
+regex = '''mongodb(\+srv)?://[^\s'"]+'''
+tags = ["database", "mongodb", "uri"]
+
+[[rules]]
+description = "Redis Connection String"
+id = "redis-uri"
+regex = '''redis://[^\s'"]+'''
+tags = ["database", "redis", "uri"]
+
+[[rules]]
+description = "Private Key"
+id = "private-key"
+regex = '''-----BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----'''
+tags = ["key", "private"]
+
+[[rules]]
+description = "Generic API Key"
+id = "generic-api-key"
+regex = '''(?i)api[_-]?key[_-]?[:=]\s*['"]*([a-zA-Z0-9]{20,})['"]*'''
+tags = ["key", "api"]
+
+[[rules]]
+description = "Generic Secret"
+id = "generic-secret"
+regex = '''(?i)secret[_-]?[:=]\s*['"]*([a-zA-Z0-9+/]{16,})['"]*'''
+tags = ["secret"]
+
+[[rules]]
+description = "Password in URL"
+id = "password-in-url"
+regex = '''[a-zA-Z]{3,10}://[^/\s:@]{3,20}:([^/\s:@]{3,20})@.{1,100}'''
+tags = ["password", "url"]
+
+# Allowlist pour les faux positifs
+[allowlist]
+description = "Allowlist for test files and documentation"
+files = [
+    '''(.*?)(jpg|gif|doc|pdf|bin)$''',
+    '''(.*?)_test\.go''',
+    '''(.*?)\.md$''',
+    '''(.*?)\.example$''',
+    '''(.*?)\.sample$''',
+    '''(.*?)\.template$'''
+]
+
+commits = [
+    # Ajouter ici les commits qui contiennent des faux positifs
+]
+
+paths = [
+    '''node_modules/''',
+    '''.git/''',
+    '''coverage/''',
+    '''build/''',
+    '''dist/''',
+    '''*.log''',
+    '''*.lock''',
+    '''package-lock.json''',
+    '''yarn.lock'''
+]
+
+regexes = [
+    # Exemples et documentation
+    '''example[_-]?api[_-]?key''',
+    '''test[_-]?secret''',
+    '''dummy[_-]?password''',
+    '''placeholder[_-]?token''',
+    # Variables d'environnement dans les exemples
+    '''\$\{[A-Z_]+\}''',
+    '''process\.env\.[A-Z_]+''',
+    # Commentaires
+    '''//.*''',
+    '''/\*.*\*/''',
+    '''#.*''',
+    # Base64 générique court (moins de 16 caractères)
+    '''[a-zA-Z0-9+/]{1,15}=*'''
+]

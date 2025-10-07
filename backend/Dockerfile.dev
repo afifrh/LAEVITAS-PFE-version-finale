@@ -1,0 +1,26 @@
+# Dockerfile de développement pour le Backend Laevitas
+FROM node:18-alpine
+
+# Installer les outils de développement
+RUN apk add --no-cache curl
+
+# Définir le répertoire de travail
+WORKDIR /app
+
+# Copier les fichiers de dépendances
+COPY package*.json ./
+
+# Installer toutes les dépendances (dev + prod)
+RUN npm ci
+
+# Copier le code source
+COPY . .
+
+# Exposer les ports (app + debugger)
+EXPOSE 5000 9229
+
+# Variables d'environnement de développement
+ENV NODE_ENV=development
+
+# Commande de développement avec hot reload et debugging
+CMD ["npm", "run", "dev"]

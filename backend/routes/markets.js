@@ -337,9 +337,12 @@ router.get('/user/watchlists/:id', authenticate, async (req, res) => {
 
     const enrichedItems = watchlist.items.map(item => {
       const marketData = markets.find(m => m.symbol === item.symbol);
+      const alerts = item.alerts || [];
+      const alertEnabled = alerts.some(a => a.isActive);
       return {
         ...item.toObject(),
-        marketData: marketData?.marketData || null
+        marketData: marketData?.marketData || null,
+        alertEnabled
       };
     });
 
@@ -610,6 +613,115 @@ router.post('/user/watchlists/:id/items/:symbol/alerts', authenticate, [
     }
     
     console.error('Erreur lors de l\'ajout de l\'alerte:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
+
+// DELETE /api/markets/watchlist/:id/items/:symbol/alerts - Supprimer toutes les alertes d'un instrument
+router.delete('/user/watchlists/:id/items/:symbol/alerts', authenticate, async (req, res) => {
+  try {
+    const watchlist = await Watchlist.findOne({
+      _id: req.params.id,
+      userId: req.user.id
+    });
+
+    if (!watchlist) {
+      return res.status(404).json({
+        success: false,
+        message: 'Watchlist non trouvée'
+      });
+    }
+
+    const item = watchlist.items.find(i => i.symbol === req.params.symbol.toUpperCase());
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: 'Instrument non trouvé dans la watchlist'
+      });
+    }
+
+    const removedCount = item.alerts.length;
+    item.alerts = [];
+    watchlist.stats.totalAlerts = Math.max(0, watchlist.stats.totalAlerts - removedCount);
+    await watchlist.save();
+
+    res.json({
+      success: true,
+      message: 'Toutes les alertes ont été supprimées pour cet instrument'
+    });
+  } catch (error) {
+    console.error('Erreur lors de la suppression des alertes:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
+
+// PUT /api/markets/watchlist/:id/items/:symbol/alerts/toggle - Activer/Désactiver toutes les alertes d'un instrument
+router.put('/user/watchlists/:id/items/:symbol/alerts/toggle', authenticate, [
+  body('isActive')
+    .optional()
+    .isBoolean()
+    .withMessage('isActive doit être un booléen')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Données invalides',
+        errors: errors.array()
+      });
+    }
+
+    const watchlist = await Watchlist.findOne({
+      _id: req.params.id,
+      userId: req.user.id
+    });
+
+    if (!watchlist) {
+      return res.status(404).json({
+        success: false,
+        message: 'Watchlist non trouvée'
+      });
+    }
+
+    const item = watchlist.items.find(i => i.symbol === req.params.symbol.toUpperCase());
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: 'Instrument non trouvé dans la watchlist'
+      });
+    }
+
+    if (!Array.isArray(item.alerts) || item.alerts.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Aucune alerte à basculer pour cet instrument'
+      });
+    }
+
+    const { isActive } = req.body;
+    if (typeof isActive === 'boolean') {
+      item.alerts.forEach(a => { a.isActive = isActive; });
+    } else {
+      // Basculer selon l'état actuel: si au moins une active, désactiver toutes; sinon activer toutes
+      const anyActive = item.alerts.some(a => a.isActive);
+      item.alerts.forEach(a => { a.isActive = !anyActive; });
+    }
+
+    await watchlist.save();
+
+    res.json({
+      success: true,
+      message: 'État des alertes mis à jour pour cet instrument'
+    });
+  } catch (error) {
+    console.error('Erreur lors du toggle des alertes:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur serveur'

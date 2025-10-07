@@ -703,7 +703,7 @@ const AdminDashboard = () => {
                         {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('fr-FR') : 'Jamais'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                        {user.portfolioValue ? `$${user.portfolioValue.toLocaleString()}` : 'N/A'}
+                        {user.portfolioValue ? `$${user.portfolioValue?.toLocaleString() || '0'}` : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">

@@ -14,10 +14,10 @@ import {
 } from '@heroicons/react/24/outline';
 import { portfolioService } from '../services/api';
 
-const Portfolio = () => {
-  const [portfolio, setPortfolio] = useState(null);
+const Portfolio = ({ portfolioData, walletData, onDataUpdate }) => {
+  const [portfolio, setPortfolio] = useState(portfolioData || null);
   const [transactions, setTransactions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!portfolioData);
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null);
@@ -34,9 +34,19 @@ const Portfolio = () => {
     notes: ''
   });
 
+  // Mettre à jour les données quand les props changent
   useEffect(() => {
-    loadPortfolioData();
-  }, []);
+    if (portfolioData) {
+      setPortfolio(portfolioData);
+      setIsLoading(false);
+    }
+  }, [portfolioData]);
+
+  useEffect(() => {
+    if (!portfolioData) {
+      loadPortfolioData();
+    }
+  }, [portfolioData]);
 
   const loadPortfolioData = async () => {
     try {
@@ -60,7 +70,12 @@ const Portfolio = () => {
       await portfolioService.addAsset(newAsset);
       setNewAsset({ symbol: '', amount: '', purchasePrice: '' });
       setShowAddAsset(false);
-      loadPortfolioData();
+      
+      // Recharger les données et notifier le parent
+      await loadPortfolioData();
+      if (onDataUpdate) {
+        onDataUpdate({ portfolio: portfolio });
+      }
     } catch (error) {
       console.error('Erreur lors de l\'ajout de l\'actif:', error);
     }
@@ -81,7 +96,10 @@ const Portfolio = () => {
   const handleRemoveAsset = async (symbol) => {
     try {
       await portfolioService.removeAsset(symbol);
-      loadPortfolioData();
+      await loadPortfolioData();
+      if (onDataUpdate) {
+        onDataUpdate({ portfolio: portfolio });
+      }
     } catch (error) {
       console.error('Erreur lors de la suppression de l\'actif:', error);
     }
@@ -90,7 +108,10 @@ const Portfolio = () => {
   const updatePrices = async () => {
     try {
       await portfolioService.updatePrices();
-      loadPortfolioData();
+      await loadPortfolioData();
+      if (onDataUpdate) {
+        onDataUpdate({ portfolio: portfolio });
+      }
     } catch (error) {
       console.error('Erreur lors de la mise à jour des prix:', error);
     }
@@ -153,16 +174,16 @@ const Portfolio = () => {
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div>
               <p className="text-gray-400">Prix moyen</p>
-              <p className="text-white font-medium">${asset.averagePrice.toFixed(2)}</p>
+              <p className="text-white font-medium">${averagePrice.toFixed(2)}</p>
             </div>
             <div>
               <p className="text-gray-400">Prix actuel</p>
-              <p className="text-white font-medium">${asset.currentPrice.toFixed(2)}</p>
+              <p className="text-white font-medium">${currentPrice.toFixed(2)}</p>
             </div>
             <div>
               <p className="text-gray-400">24h</p>
               <p className={`font-medium ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-                {isPositive ? '+' : ''}{asset.change24h.toFixed(2)}%
+                {isPositive ? '+' : ''}{(asset.change24h || 0).toFixed(2)}%
               </p>
             </div>
           </div>

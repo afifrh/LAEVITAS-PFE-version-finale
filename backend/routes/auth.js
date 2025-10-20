@@ -105,7 +105,8 @@ router.post('/register', [
     console.error('Erreur lors de l\'inscription:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur interne du serveur'
+      message: 'Erreur interne du serveur',
+        error: error.message 
     });
   }
 });

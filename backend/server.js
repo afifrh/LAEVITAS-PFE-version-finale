@@ -9,7 +9,12 @@ const http = require('http');
 const websocketService = require('./services/websocketService');
 const syncService = require('./services/syncService');
 require('dotenv').config();
-
+// Verify environment variables are loaded
+console.log('🔍 Checking environment variables:');
+console.log('JWT_SECRET:', process.env.JWT_SECRET ? '✅ Loaded' : '❌ NOT FOUND');
+console.log('JWT_REFRESH_SECRET:', process.env.JWT_REFRESH_SECRET ? '✅ Loaded' : '❌ NOT FOUND');
+console.log('MONGODB_URI:', process.env.MONGODB_URI ? '✅ Loaded' : '❌ NOT FOUND');
+console.log('PORT:', process.env.PORT ? '✅ Loaded' : '❌ NOT FOUND');
 // Import des routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
@@ -42,10 +47,9 @@ app.use(morgan('combined'));
 const allowedOrigins = [
   process.env.CLIENT_URL,
   'http://localhost:3000',
-  'http://localhost:3001',
+
   'http://127.0.0.1:3000',
-  'http://127.0.0.1:3001',
-  'http://192.168.1.11:3001'
+ 
 ].filter(Boolean);
 
 app.use(cors({
@@ -158,7 +162,9 @@ process.on('SIGINT', () => {
   gracefulShutdown();
 });
 
-function gracefulShutdown() {
+async function gracefulShutdown() {
+  console.log('🛑 Début de l\'arrêt gracieux...');
+  
   // Arrêter le service de synchronisation
   try {
     syncService.stop();
@@ -176,15 +182,20 @@ function gracefulShutdown() {
   }
 
   // Fermer le serveur HTTP
-  server.close(() => {
+  server.close(async () => {
     console.log('✅ Serveur HTTP fermé');
     
-    // Fermer la connexion MongoDB
-    mongoose.connection.close(false, () => {
+    // Fermer la connexion MongoDB (nouvelle syntaxe sans callback)
+    try {
+      await mongoose.connection.close(false);
       console.log('✅ Connexion MongoDB fermée');
       process.exit(0);
-    });
+    } catch (error) {
+      console.error('❌ Erreur lors de la fermeture de MongoDB:', error);
+      process.exit(1);
+    }
   });
+
 }
 
 module.exports = app;

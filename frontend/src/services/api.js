@@ -44,6 +44,23 @@ if (authToken) {
   setAuthToken(authToken);
 }
 
+// Variable pour éviter les appels de refresh multiples
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  
+  isRefreshing = false;
+  failedQueue = [];
+};
+
 // Intercepteur de requête
 api.interceptors.request.use(
   (config) => {
@@ -78,9 +95,25 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
-    // Si l'erreur est 401 et qu'on n'a pas déjà tenté de rafraîchir le token
-    if (error.response?.status === 401 && !originalRequest._retry && refreshToken) {
+    // Éviter de rafraîchir le token pour les routes d'authentification
+    const authRoutes = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout'];
+    const isAuthRoute = authRoutes.some(route => originalRequest.url.includes(route));
+    
+    // Si l'erreur est 401, pas une route d'auth, et qu'on a un refresh token
+    if (error.response?.status === 401 && !isAuthRoute && refreshToken && !originalRequest._retry) {
+      
+      if (isRefreshing) {
+        // Si on est déjà en train de rafraîchir, mettre en queue
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
+        });
+      }
+
       originalRequest._retry = true;
+      isRefreshing = true;
       
       try {
         // Tenter de rafraîchir le token
@@ -94,6 +127,8 @@ api.interceptors.response.use(
         setAuthToken(accessToken);
         setRefreshToken(newRefreshToken);
         
+        processQueue(null, accessToken);
+        
         // Réessayer la requête originale avec le nouveau token
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
@@ -101,11 +136,15 @@ api.interceptors.response.use(
       } catch (refreshError) {
         // Si le refresh échoue, déconnecter l'utilisateur
         console.error('Erreur lors du rafraîchissement du token:', refreshError);
+        processQueue(refreshError, null);
+        
         setAuthToken(null);
         setRefreshToken(null);
         
         // Rediriger vers la page de connexion
-        window.location.href = '/login';
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
         
         return Promise.reject(refreshError);
       }
@@ -314,8 +353,6 @@ export const portfolioService = {
   
   // Ajouter une transaction au portefeuille
   addTransaction: async (transactionData) => {
-    // Pour l'instant, on utilise addAsset car il n'y a pas d'endpoint spécifique pour les transactions
-    // Dans une vraie application, il faudrait un endpoint dédié
     const response = await api.post('/portfolio/assets', {
       symbol: transactionData.symbol,
       name: transactionData.symbol,
@@ -331,6 +368,18 @@ export const portfolioService = {
   removeAsset: async (symbol) => {
     const response = await api.delete(`/portfolio/assets/${symbol}`);
     return response.data.data;
+  },
+
+  // Effectuer un dépôt
+  deposit: async (depositData) => {
+    const response = await api.post('/portfolio/deposit', depositData);
+    return response.data.data;
+  },
+
+  // Effectuer un retrait
+  withdraw: async (withdrawData) => {
+    const response = await api.post('/portfolio/withdraw', withdrawData);
+    return response.data.data;
   }
 };
 
@@ -345,7 +394,6 @@ export const healthService = {
 // Fonction utilitaire pour gérer les erreurs d'API
 export const handleApiError = (error) => {
   if (error.response) {
-    // Erreur de réponse du serveur
     const { status, data } = error.response;
     
     switch (status) {
@@ -369,10 +417,8 @@ export const handleApiError = (error) => {
         return data.message || 'Une erreur est survenue';
     }
   } else if (error.request) {
-    // Erreur de réseau
     return 'Erreur de connexion. Vérifiez votre connexion internet.';
   } else {
-    // Autre erreur
     return error.message || 'Une erreur inattendue est survenue';
   }
 };
